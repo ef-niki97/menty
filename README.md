@@ -2,19 +2,17 @@
 
 Сайт для ведения учеников: профиль, цели, оценка компетенций с радар-диаграммой, история портфолио и CV.
 Фронтенд — чистый HTML/CSS/JS (папка `public/`), бэкенд — один Cloudflare Worker (`src/worker.js`)
-с базой D1 (карточки) и хранилищем R2 (файлы CV). Вход по почте и паролю, сессия в HttpOnly-куке.
+с базой D1 (карточки и файлы CV, до 10 МБ на файл). Вход по почте и паролю, сессия в HttpOnly-куке.
 
 ## Деплой на Cloudflare (через GitHub, без установки Node)
 
-1. **База.** Cloudflare → Storage & Databases → D1 → *Create database*, имя `menty`.
-   Скопируйте её **Database ID** и вставьте в `wrangler.toml` вместо `ВСТАВЬТЕ_ID_БАЗЫ`. Таблицы создаются сами при первом запросе.
-2. **Файлы.** R2 → *Create bucket*, имя `menty-files` (для включения R2 Cloudflare может попросить карту; бесплатного лимита хватает).
-3. **Проект.** Workers & Pages → *Create* → *Import a repository* → выберите `menty`.
+1. **База.** Уже создана: D1 `menty`, её ID прописан в `wrangler.toml`. Таблицы создаются сами при первом запросе.
+2. **Проект.** Workers & Pages → *Create* → *Import a repository* → выберите `menty`.
    Build command оставьте пустым, Deploy command: `npx wrangler deploy`.
 3. **Секреты.** Worker `menty` → Settings → Variables and Secrets → добавьте как **Secret**:
    - `ADMIN_PASSWORD` — ваш пароль для входа;
    - `SESSION_SECRET` — любая длинная случайная строка (32+ символов).
-5. Откройте выданный адрес `menty.<ваш-аккаунт>.workers.dev` и войдите: почта `efimtsev.spb@gmail.com` и ваш пароль.
+4. Откройте выданный адрес `menty.<ваш-аккаунт>.workers.dev` и войдите: почта `efimtsev.spb@gmail.com` и ваш пароль.
 
 Дальше каждый `git push` в `main` обновляет сайт автоматически.
 

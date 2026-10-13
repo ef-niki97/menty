@@ -3,6 +3,7 @@ import { GRADES, STATUSES, CURRENCIES, HORIZONS, GROUPS, SKILLS, LEVELS } from '
 import { esc, icon, avatar, fileToAvatar, fullName, fmtDate, fmtMoney, fmtSize, today, safeUrl, host, toast, openModal, downloadBlob, ACT } from '../ui.js';
 import { radar, radarLegend, groupTiles } from '../radar.js';
 import { skillsEditorHtml, bindSkillsEditor } from '../skills-editor.js';
+import { datePicker } from '../datepicker.js';
 import { total, latest, growth, fmt1, signed } from '../metrics.js';
 
 const MAX_FILE = 10 * 1024 * 1024;
@@ -67,7 +68,7 @@ const tasksCard = (s) => `<div class="card"><div class="card-h"><h2 class="d-s">
   <form class="row add-row" id="task-form"><input class="field sm" name="text" placeholder="Новая задача для ученика" autocomplete="off" required><button class="pill dark sm" type="submit">Добавить</button></form></div>`;
 
 const sessionsCard = (s) => `<div class="card"><div class="card-h"><h2 class="d-s">Встречи и заметки</h2></div>
-  <form class="col" id="session-form"><div class="row"><input class="field sm" type="date" name="date" value="${today()}" style="width:180px" required><button class="pill dark sm" type="submit" style="margin-left:auto">Записать</button></div><textarea class="field sm" name="text" rows="2" placeholder="О чём говорили, договорённости, что обсудить дальше" required></textarea></form>
+  <form class="col" id="session-form"><div class="row">${datePicker('date', today())}<button class="pill dark sm" type="submit" style="margin-left:auto">Записать</button></div><textarea class="field sm" name="text" rows="2" placeholder="О чём говорили, договорённости, что обсудить дальше" required></textarea></form>
   <div class="tl" style="margin-top:20px">${[...s.sessions].sort((a, b) => b.date.localeCompare(a.date)).map((x) => `<div class="tl-i"><div class="row spread"><div class="tl-t">${fmtDate(x.date)}</div><button class="x" data-act="st-sess-del" data-id="${x.id}" aria-label="Удалить">${icon('close')}</button></div><div class="tl-s pre">${esc(x.text)}</div></div>`).join('') || '<p class="small">Записей пока нет.</p>'}</div></div>`;
 
 const privateCard = (s) => `<div class="card flat"><div class="card-h"><h2 class="d-s">${icon('lock')} Личная заметка</h2><span class="small">видите только вы</span></div>
@@ -137,8 +138,8 @@ ACT['st-edit'] = (el) => {
     <div class="grid g2">${sel('Грейд', 'grade', GRADES.map((x) => [x, x]), s.grade)}${sel('Статус', 'status', Object.entries(STATUSES).map(([k, v]) => [k, v.label]), s.status)}</div>
     <div class="grid g2">${f('Компания', 'company', s.company)}${f('Должность', 'role', s.role)}</div>
     <div class="divider" style="margin:4px 0"></div>
-    ${f('Желаемая должность', 'targetRole', g.position)}${f('Желаемая компания', 'targetCompany', g.company)}
-    <div class="grid g3">${f('Зарплата', 'salary', g.salary ?? '', '150000', 'number')}${sel('Валюта', 'currency', CURRENCIES.map((x) => [x, x]), g.currency)}${sel('Срок', 'horizon', HORIZONS, g.horizon)}</div>
+    ${f('Целевая должность', 'targetRole', g.position)}${f('Целевая компания или направление', 'targetCompany', g.company)}
+    <div class="grid g3">${f('Ожидаемая зарплата', 'salary', g.salary ?? '', '150000', 'number')}${sel('Валюта', 'currency', CURRENCIES.map((x) => [x, x]), g.currency)}${sel('Срок', 'horizon', HORIZONS, g.horizon)}</div>
     <div class="row spread" style="margin-top:12px"><button type="button" class="pill danger-ghost" id="ed-del">Удалить ученика</button><div class="row"><button type="button" class="pill ghost" data-close>Отмена</button><button class="pill dark" type="submit">Сохранить</button></div></div></form>`,
   (m, close) => {
     m.querySelector('#ed-form').addEventListener('submit', (e) => {

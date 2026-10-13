@@ -1,0 +1,44 @@
+/* Menty — дизайн-токены. Брендовый цвет — чёрный. Стиль унаследован от прототипа 7taps Next. */
+:root {
+  --ink: #111113;
+  --accent-100: #111113;
+  --accent-hover: #2c2c31;
+  --accent-12: rgba(17,17,19,.12);
+  --accent-8: rgba(17,17,19,.08);
+  --accent-4: rgba(17,17,19,.04);
+
+  --black-100: #111113;
+  --black-84: rgba(17,17,19,.84);
+  --black-52: rgba(17,17,19,.52);
+  --black-32: rgba(17,17,19,.32);
+  --black-20: rgba(17,17,19,.20);
+  --black-12: rgba(17,17,19,.12);
+  --black-8: rgba(17,17,19,.08);
+  --black-6: rgba(17,17,19,.06);
+  --black-4: rgba(17,17,19,.04);
+  --black-2: rgba(17,17,19,.02);
+  --white-60: rgba(255,255,255,.6);
+
+  --green: #13803a; --green-bg: rgba(45,181,95,.14);
+  --red: #cb281e; --red-bg: rgba(203,40,30,.08);
+  --orange: #d4650f; --orange-bg: rgba(238,117,29,.12);
+  --violet: #8b6cf6;
+
+  --bg: #fbfbfd; --surface: #fff; --surface-2: #f5f5f7;
+  --radius-xl: 28px;
+  --elev-1: 0 1px 2px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.04);
+  --elev-2: 0 2px 6px rgba(0,0,0,.05), 0 16px 40px rgba(0,0,0,.08);
+  --elev-3: 0 8px 24px rgba(0,0,0,.08), 0 32px 80px rgba(0,0,0,.14);
+  --glass: rgba(251,251,253,.72);
+  --glass-blur: saturate(180%) blur(24px);
+  --ease: cubic-bezier(.2,.8,.2,1);
+  --dur-1: 200ms; --dur-2: 350ms;
+
+  --font: "Inter", system-ui, -apple-system, sans-serif;
+  --font-icon: "Material Symbols Rounded";
+  --display-l: 700 56px/1.05 var(--font);
+  --display-m: 700 40px/1.1 var(--font);
+  --display-s: 600 28px/1.18 var(--font);
+  --page-max: 1180px; --gutter: 32px;
+}
+@media (prefers-reduced-motion: reduce) { :root { --dur-1: 0ms; --dur-2: 0ms; } }

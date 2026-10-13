@@ -10,11 +10,11 @@ run_worker_first = ["/api/*"]
 [vars]
 ADMIN_EMAIL = "efimtsev.spb@gmail.com"
 
-# База: Cloudflare → Storage & Databases → D1 → Create. Затем вставьте сюда её ID.
+# База D1 «menty» (создана в аккаунте Cloudflare).
 [[d1_databases]]
 binding = "DB"
 database_name = "menty"
-database_id = "ВСТАВЬТЕ_ID_БАЗЫ"
+database_id = "7faf9afe-f324-4ba6-8de1-6a304e7e3426"
 
 # Файлы CV: Cloudflare → R2 → Create bucket с именем menty-files.
 [[r2_buckets]]

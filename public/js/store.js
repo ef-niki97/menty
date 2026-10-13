@@ -1,38 +1,29 @@
-// Слой данных. Сейчас — localStorage (карточки) + IndexedDB (файлы CV).
-// Вся работа с данными идёт только через эти функции, поэтому позже их можно
-// заменить на запросы к серверу, не трогая экраны.
+// Слой данных. Источник правды — сервер (D1 + R2), см. src/worker.js.
+// Список учеников держим в памяти: чтение синхронное, а каждая запись сразу уходит на сервер.
+import { api } from './api.js';
 
-const KEY = 'menty:v1';
-const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()));
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()).replace('.', ''));
 const now = () => new Date().toISOString();
 
-let db = load();
-function load() {
-  try { const d = JSON.parse(localStorage.getItem(KEY)); if (d && Array.isArray(d.students)) return d; } catch { /* пусто или битые данные */ }
-  return { students: [] };
-}
-function persist() {
-  try { localStorage.setItem(KEY, JSON.stringify(db)); return true; }
-  catch { window.dispatchEvent(new CustomEvent('menty:error', { detail: 'Не удалось сохранить данные — переполнено хранилище браузера' })); return false; }
-}
+let cache = [];
+let queue = Promise.resolve(); // записи идут по очереди, чтобы порядок сохранялся
+const fail = (msg) => window.dispatchEvent(new CustomEvent('menty:error', { detail: msg }));
+const sync = (fn) => { queue = queue.then(fn).catch((e) => { if (e.status !== 401) fail('Не удалось сохранить на сервере — проверьте соединение и обновите страницу'); console.error(e); }); return queue; };
+const save = (s) => sync(() => api('PUT', `/students/${s.id}`, s));
 
-// ---------- файлы (IndexedDB) ----------
-const idb = () => new Promise((res, rej) => {
-  const r = indexedDB.open('menty-files', 1);
-  r.onupgradeneeded = () => r.result.createObjectStore('files');
-  r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
-});
-const tx = async (mode, fn) => { const d = await idb(); return new Promise((res, rej) => { const t = d.transaction('files', mode); const q = fn(t.objectStore('files')); t.oncomplete = () => res(q?.result); t.onerror = () => rej(t.error); }); };
-export const putFile = (id, blob) => tx('readwrite', (s) => s.put(blob, id));
-export const getFile = (id) => tx('readonly', (s) => s.get(id));
-const delFile = (id) => tx('readwrite', (s) => s.delete(id)).catch(() => {});
+export async function initStore() { cache = await api('GET', '/students'); }
+export const resetStore = () => { cache = []; };
+
+// ---------- файлы ----------
+export const putFile = (id, blob) => api('PUT', `/files/${id}`, blob);
+export const getFile = async (id) => (await api('GET', `/files/${id}`, undefined, true)).blob();
 
 // ---------- чтение ----------
-export const students = () => db.students;
-export const getStudent = (id) => db.students.find((s) => s.id === id);
+export const students = () => cache;
+export const getStudent = (id) => cache.find((s) => s.id === id);
 
 // ---------- запись ----------
-function mutate(id, fn) { const s = getStudent(id); if (!s) return; fn(s); s.updatedAt = now(); persist(); return s; }
+function mutate(id, fn) { const s = getStudent(id); if (!s) return; fn(s); s.updatedAt = now(); save(s); return s; }
 
 export async function addStudent(d) {
   const t = now();
@@ -48,7 +39,8 @@ export async function addStudent(d) {
   };
   if (d.portfolio) s.portfolios.push({ id: uid(), url: d.portfolio, title: 'Портфолио', note: '', addedAt: t });
   if (d.cv) { const id = uid(); await putFile(id, d.cv); s.cvs.push({ id, name: d.cv.name, size: d.cv.size, type: d.cv.type, addedAt: t }); }
-  db.students.push(s); persist(); return s;
+  await api('POST', '/students', s);
+  cache.push(s); return s;
 }
 export const updateStudent = (id, patch) => mutate(id, (s) => Object.assign(s, patch));
 export const addAssessment = (id, scores, comment) => mutate(id, (s) => s.assessments.push({ id: uid(), date: now(), scores: { ...scores }, comment: comment?.trim() || '' }));
@@ -64,17 +56,16 @@ export const addTask = (id, text) => mutate(id, (s) => s.tasks.push({ id: uid(),
 export const toggleTask = (id, tid) => mutate(id, (s) => { const t = s.tasks.find((x) => x.id === tid); if (t) t.done = !t.done; });
 export const removeTask = (id, tid) => mutate(id, (s) => { s.tasks = s.tasks.filter((x) => x.id !== tid); });
 export async function removeStudent(id) {
-  const s = getStudent(id); if (!s) return;
-  await Promise.all(s.cvs.map((c) => delFile(c.id)));
-  db.students = db.students.filter((x) => x.id !== id); persist();
+  await queue; await api('DELETE', `/students/${id}`); // сервер удалит и файлы CV
+  cache = cache.filter((x) => x.id !== id);
 }
 
 // ---------- резервная копия (файлы CV в неё не входят) ----------
-export const exportJson = () => JSON.stringify({ app: 'menty', version: 1, exportedAt: now(), ...db }, null, 2);
-export function importJson(text) {
+export const exportJson = () => JSON.stringify({ app: 'menty', version: 1, exportedAt: now(), students: cache }, null, 2);
+export async function importJson(text) {
   const d = JSON.parse(text);
   if (!d || !Array.isArray(d.students)) throw new Error('Неверный формат файла');
-  db = { students: d.students }; return persist();
+  await api('POST', '/import', { students: d.students }); await initStore();
 }
-export function seed(list) { db.students.push(...list); persist(); }
+export async function seed(list) { await api('POST', '/import', { students: list }); await initStore(); }
 export const uidNew = uid;

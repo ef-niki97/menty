@@ -66,4 +66,4 @@ export function studentsView() {
   };
 }
 
-ACT['seed-demo'] = () => { seed(demoStudents()); toast('Демо-данные загружены'); window.__rerender(); };
+ACT['seed-demo'] = async () => { try { await seed(demoStudents()); toast('Демо-данные загружены'); window.__rerender(); } catch { toast('Не удалось загрузить демо-данные'); } };

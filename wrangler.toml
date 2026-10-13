@@ -1,0 +1,24 @@
+name = "menty"
+main = "src/worker.js"
+compatibility_date = "2025-09-01"
+
+# Статика сайта лежит в public/. Запросы на /api/* сначала идут в Worker.
+[assets]
+directory = "./public"
+run_worker_first = ["/api/*"]
+
+[vars]
+ADMIN_EMAIL = "efimtsev.spb@gmail.com"
+
+# База: Cloudflare → Storage & Databases → D1 → Create. Затем вставьте сюда её ID.
+[[d1_databases]]
+binding = "DB"
+database_name = "menty"
+database_id = "ВСТАВЬТЕ_ID_БАЗЫ"
+
+# Файлы CV: Cloudflare → R2 → Create bucket с именем menty-files.
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "menty-files"
+
+# Секреты ADMIN_PASSWORD и SESSION_SECRET задаются в панели (не в этом файле) — см. README.

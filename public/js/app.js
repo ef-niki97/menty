@@ -1,5 +1,5 @@
-import { isAuthed, logout, currentUser } from './auth.js';
-import { exportJson, importJson } from './store.js';
+import { initAuth, isAuthed, logout, forgetUser, currentUser } from './auth.js';
+import { initStore, resetStore, exportJson, importJson } from './store.js';
 import { $, ACT, esc, icon, logo, toast, downloadBlob, today } from './ui.js';
 import { loginView } from './views/login.js';
 import { studentsView } from './views/students.js';
@@ -56,6 +56,7 @@ function route(keep) {
 window.__rerender = () => route(true);
 window.addEventListener('hashchange', () => route(false));
 window.addEventListener('menty:error', (e) => toast(e.detail));
+window.addEventListener('menty:unauth', () => { forgetUser(); resetStore(); if (location.hash !== '#/login') location.hash = '#/login'; });
 
 document.addEventListener('click', (e) => {
   const a = e.target.closest('[data-act]');
@@ -64,12 +65,14 @@ document.addEventListener('click', (e) => {
 });
 
 ACT['menu-toggle'] = () => $('#umenu').classList.toggle('on');
-ACT.logout = () => { logout(); location.hash = '#/login'; };
+ACT.logout = async () => { await logout(); resetStore(); location.hash = '#/login'; };
 ACT.backup = () => { downloadBlob(new Blob([exportJson()], { type: 'application/json' }), `menty-backup-${today()}.json`); toast('Копия скачана. Файлы CV в неё не входят'); $('#umenu')?.classList.remove('on'); };
 function onRestore(e) {
   const f = e.target.files[0]; if (!f) return;
   if (!confirm('Заменить все текущие данные данными из файла?')) { e.target.value = ''; return; }
-  f.text().then((t) => { importJson(t); toast('Данные восстановлены'); location.hash = '#/students'; window.__rerender(); }).catch(() => toast('Не удалось прочитать файл'));
+  f.text().then(importJson).then(() => { toast('Данные восстановлены'); location.hash = '#/students'; window.__rerender(); }).catch(() => toast('Не удалось восстановить данные из файла'));
 }
 
+await initAuth();
+if (isAuthed()) await initStore().catch(() => toast('Не удалось загрузить данные'));
 route(false);

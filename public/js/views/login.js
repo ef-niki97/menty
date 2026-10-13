@@ -1,4 +1,5 @@
 import { login } from '../auth.js';
+import { initStore } from '../store.js';
 import { logo, icon } from '../ui.js';
 import { radar } from '../radar.js';
 
@@ -33,7 +34,7 @@ export function loginView() {
       form.addEventListener('submit', async (e) => {
         e.preventDefault(); const f = new FormData(form);
         const ok = await login(f.get('email') || '', f.get('password') || '');
-        if (ok) location.hash = '#/students'; else { err.classList.remove('hide'); form.querySelector('#l-pass').select(); }
+        if (ok) { try { await initStore(); } catch { /* список подгрузится позже */ } location.hash = '#/students'; } else { err.classList.remove('hide'); form.querySelector('#l-pass').select(); }
       });
       root.querySelector('#l-email').focus();
     },

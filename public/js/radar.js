@@ -1,6 +1,6 @@
 import { SKILLS, GROUPS, LEVELS } from './config.js';
 import { esc } from './ui.js';
-import { groupAvg, fmt1 } from './metrics.js';
+import { groupAvg, total, fmt1 } from './metrics.js';
 
 // Радар по всем компетенциям. series: [{ scores, kind: 'prev' | 'now', label }]
 // Секторы подкрашены по группам навыков. «Было» — пунктир, «Стало» — заливка.
@@ -50,11 +50,48 @@ export function radarLegend(hasPrev, prevLabel = 'Было', nowLabel = 'Ста�
   return `<div class="legend">${series}<span class="lg-sep"></span>${groups}</div>`;
 }
 
-// Три плитки со средним по группам (+ дельта, если есть с чем сравнить)
-export function groupTiles(scores, prevScores) {
-  return `<div class="gtiles">${GROUPS.map((g) => {
-    const v = groupAvg(scores, g.id); const d = prevScores ? v - groupAvg(prevScores, g.id) : null;
-    const dh = d === null || Math.abs(d) < 0.05 ? '' : `<span class="delta ${d > 0 ? 'up' : 'down'}">${d > 0 ? '↑' : '↓'} ${fmt1(Math.abs(d))}</span>`;
-    return `<div class="gtile"><div class="gt-h"><span class="i" style="color:${g.color}">${g.icon}</span>${g.label}</div><div class="gt-v">${fmt1(v)}<small>/5</small>${dh}</div><div class="bar"><i style="width:${(v / 5) * 100}%;background:${g.color}"></i></div></div>`;
-  }).join('')}</div>`;
+// Итоговая оценка: цветная «сфера» (цвет и яркость зависят от результатов групп) в кольце из трёх дуг.
+// Дуга — значение группы из 5, засечка на дуге — «было». Справа — общий уровень и разбивка по группам.
+let orbN = 0;
+export function scoreOrb(scores, prevScores, { animate = false } = {}) {
+  const n = ++orbN, cx = 200, cy = 160, R = 128, RO = 96, GAP = 8, OFF = -60, SPAN = 120 - GAP;
+  const pol = (r, deg) => { const a = (deg * Math.PI) / 180; return [cx + r * Math.sin(a), cy - r * Math.cos(a)]; };
+  const f = (p) => p.map((v) => v.toFixed(1)).join(',');
+  const arc = (a0, a1) => `M${f(pol(R, a0))} A${R},${R} 0 0 1 ${f(pol(R, a1))}`;
+  const rows = GROUPS.map((g, i) => {
+    const v = groupAvg(scores, g.id), pv = prevScores ? groupAvg(prevScores, g.id) : null;
+    const a0 = OFF + i * 120 + GAP / 2, a1 = a0 + SPAN, mid = (a0 + a1) / 2;
+    return { g, v, pv, a0, a1, mid, frac: v / 5 };
+  });
+
+  const blobs = rows.map((r) => { const [x, y] = pol(46, r.mid); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="82" fill="${r.g.color}" opacity="${(r.v ? 0.4 + 0.6 * r.frac : 0.08).toFixed(2)}"/>`; }).join('');
+  const rings = rows.map((r) => {
+    const track = `<path d="${arc(r.a0, r.a1)}" fill="none" stroke="rgba(17,17,19,.07)" stroke-width="7" stroke-linecap="round"/>`;
+    const fill = r.v ? `<path class="${animate ? 'orb-arc' : ''}" d="${arc(r.a0, r.a1)}" pathLength="100" fill="none" stroke="${r.g.color}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${(r.frac * 100).toFixed(2)} 100"/>` : '';
+    let tick = '';
+    if (r.pv) { const d = r.a0 + (r.pv / 5) * SPAN, [x1, y1] = pol(R - 8, d), [x2, y2] = pol(R + 8, d); tick = `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="rgba(17,17,19,.55)" stroke-width="2.4" stroke-linecap="round"/>`; }
+    const [lx, ly] = pol(R + 26, r.mid), sn = Math.sin((r.mid * Math.PI) / 180), cs = Math.cos((r.mid * Math.PI) / 180);
+    const anchor = Math.abs(sn) < 0.3 ? 'middle' : sn > 0 ? 'start' : 'end', dy = cs > 0.5 ? -14 : cs < -0.5 ? 8 : -2;
+    const lab = `<text x="${lx.toFixed(1)}" y="${(ly + dy).toFixed(1)}" text-anchor="${anchor}" font-size="17" font-weight="700" fill="rgba(17,17,19,.9)" letter-spacing="-.02em">${fmt1(r.v)}</text><text x="${lx.toFixed(1)}" y="${(ly + dy + 14).toFixed(1)}" text-anchor="${anchor}" font-size="11.5" font-weight="600" fill="rgba(17,17,19,.5)">${esc(r.g.label.replace('-скиллы', ''))}</text>`;
+    return track + fill + tick + lab;
+  }).join('');
+
+  const svg = `<svg class="orb-svg" viewBox="0 -26 400 346" role="img" aria-label="Итоговая оценка по группам навыков">
+    <defs>
+      <clipPath id="oc${n}"><circle cx="${cx}" cy="${cy}" r="${RO}"/></clipPath>
+      <filter id="ob${n}" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="19"/></filter>
+      <filter id="os${n}" x="-30%" y="-100%" width="160%" height="300%"><feGaussianBlur stdDeviation="9"/></filter>
+      <radialGradient id="oh${n}" cx=".3" cy=".22" r=".55"><stop offset="0" stop-color="#fff" stop-opacity=".6"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+      <linearGradient id="ot${n}" x1="0" y1="0" x2="0" y2="1"><stop offset=".6" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".78"/></linearGradient>
+    </defs>
+    <ellipse cx="${cx}" cy="${cy + RO + 18}" rx="64" ry="9" fill="rgba(17,17,19,.16)" filter="url(#os${n})"/>
+    <circle cx="${cx}" cy="${cy}" r="${RO}" fill="#fff"/>
+    <g clip-path="url(#oc${n})"><g filter="url(#ob${n})">${blobs}</g><rect x="${cx - RO}" y="${cy - RO}" width="${RO * 2}" height="${RO * 2}" fill="url(#ot${n})"/><circle cx="${cx}" cy="${cy}" r="${RO}" fill="url(#oh${n})"/></g>
+    <circle cx="${cx}" cy="${cy}" r="${RO}" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="1.5"/>
+    ${rings}</svg>`;
+
+  const tot = total(scores), dt = prevScores ? tot - total(prevScores) : null;
+  const delta = (d) => d === null || Math.abs(d) < 0.05 ? '' : `<span class="delta ${d > 0 ? 'up' : 'down'}">${d > 0 ? '↑' : '↓'} ${fmt1(Math.abs(d))}</span>`;
+  return `<div class="orb-wrap">${svg}<div class="orb-sum"><div class="small">Общий уровень</div><div class="orb-tot">${fmt1(tot)}<small>/5</small>${delta(dt)}</div>
+    <div class="orb-rows">${rows.map((r) => `<div class="orb-row"><i style="background:${r.g.color}"></i><span>${esc(r.g.label)}</span><b>${fmt1(r.v)}</b>${r.pv === null ? '' : delta(r.v - r.pv)}</div>`).join('')}</div></div></div>`;
 }

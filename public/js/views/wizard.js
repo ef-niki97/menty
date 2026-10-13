@@ -1,7 +1,7 @@
 import { addStudent } from '../store.js';
 import { GRADES, CURRENCIES, HORIZONS } from '../config.js';
 import { esc, icon, avatar, safeUrl, fmtSize, toast, ACT, fileToAvatar } from '../ui.js';
-import { radar, radarLegend, groupTiles } from '../radar.js';
+import { radar, radarLegend, scoreOrb } from '../radar.js';
 import { skillsEditorHtml, bindSkillsEditor } from '../skills-editor.js';
 import { total, fmt1 } from '../metrics.js';
 
@@ -43,7 +43,7 @@ function stepSummary() {
       ${kv('Работает', [draft.role, draft.company].filter(Boolean).join(' · '))}${kv('Портфолио', url || draft.portfolio)}${kv('CV', draft.cv?.name)}
       <div class="divider"></div>${kv('Цель', draft.targetRole)}${kv('Компания', draft.targetCompany)}${kv('Зарплата', draft.salary ? `${Number(draft.salary).toLocaleString('ru-RU')} ${draft.currency}` : '')}${kv('Срок', HORIZONS.find(([v]) => v === draft.horizon)?.[1] !== 'Не указан' ? HORIZONS.find(([v]) => v === draft.horizon)?.[1] : '')}
       ${draft.privateNote ? `<div class="divider"></div><div class="kv"><span>${icon('lock')} Личная заметка</span><b class="note">${esc(draft.privateNote)}</b></div>` : ''}</div>
-      <div class="card"><div class="small" style="margin-bottom:4px">Средний уровень</div><div class="stat"><div class="v">${fmt1(total(draft.scores))}<small>/5</small></div></div>${radar([{ scores: draft.scores, kind: 'now' }])}${radarLegend(false, '', 'Стартовая оценка')}${groupTiles(draft.scores)}</div></div>`;
+      <div class="card">${radar([{ scores: draft.scores, kind: 'now' }])}${radarLegend(false, '', 'Стартовая оценка')}${scoreOrb(draft.scores, null, { animate: true })}</div></div>`;
 }
 
 const BODY = [null, stepProfile, stepGoals, stepSkills, stepSummary];

@@ -15,9 +15,9 @@ export const HORIZONS = [['', 'Не указан'], ['3', '3 месяца'], ['6
 export const LEVELS = ['Не оценено', 'Начальный', 'Базовый', 'Уверенный', 'Продвинутый', 'Эксперт'];
 
 export const GROUPS = [
-  { id: 'hard', label: 'Хард-скиллы', icon: 'palette', color: '#111113', tint: 'rgba(17,17,19,.045)' },
-  { id: 'soft', label: 'Софт-скиллы', icon: 'forum', color: '#8e8e93', tint: 'rgba(17,17,19,.015)' },
-  { id: 'ai', label: 'AI-скиллы', icon: 'auto_awesome', color: '#8b6cf6', tint: 'rgba(139,108,246,.08)' },
+  { id: 'hard', label: 'Хард-скиллы', icon: 'palette', color: '#3558f5', tint: 'rgba(53,88,245,.07)' },
+  { id: 'soft', label: 'Софт-скиллы', icon: 'forum', color: '#f2813b', tint: 'rgba(242,129,59,.07)' },
+  { id: 'ai', label: 'AI-скиллы', icon: 'auto_awesome', color: '#b94de0', tint: 'rgba(185,77,224,.07)' },
 ];
 
 // short — подпись на диаграмме, hint — что имеем в виду

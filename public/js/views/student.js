@@ -1,7 +1,7 @@
 import * as store from '../store.js';
 import { GRADES, STATUSES, CURRENCIES, HORIZONS, GROUPS, SKILLS, LEVELS } from '../config.js';
 import { esc, icon, avatar, fileToAvatar, fullName, fmtDate, fmtMoney, fmtSize, today, safeUrl, host, toast, openModal, downloadBlob, ACT } from '../ui.js';
-import { radar, radarLegend, groupTiles } from '../radar.js';
+import { radar, radarLegend, scoreOrb } from '../radar.js';
 import { skillsEditorHtml, bindSkillsEditor } from '../skills-editor.js';
 import { datePicker } from '../datepicker.js';
 import { total, latest, growth, fmt1, signed } from '../metrics.js';
@@ -29,7 +29,7 @@ function competenciesCard(s, now, base) {
       <a class="pill dark sm" href="#/student/${s.id}/assess">${icon('add_chart')} Новая оценка</a></div></div>
     ${radar([...(base ? [{ scores: base.scores, kind: 'prev' }] : []), { scores: now.scores, kind: 'now' }])}
     ${radarLegend(!!base, base ? `Было · ${fmtDate(base.date)}` : '', `${base ? 'Стало' : 'Оценка'} · ${fmtDate(now.date)}`)}
-    ${groupTiles(now.scores, base?.scores)}
+    ${scoreOrb(now.scores, base?.scores, { animate: true })}
     <details class="more"><summary>Все навыки подробно ${icon('expand_more')}</summary>${skillRows(now, base)}</details></div>`;
 }
 
@@ -171,7 +171,7 @@ export function assessView({ id }) {
         <div class="row spread" style="margin-top:8px"><a class="pill ghost" href="#/student/${s.id}">Отмена</a><button class="pill dark lg" id="as-save">${icon('check')} Сохранить оценку</button></div></div>
         <aside class="skills-side"><div class="card"><div id="as-radar"></div><div id="as-tiles"></div></div></aside></div></div>`,
     mount(root) {
-      const draw = () => { root.querySelector('#as-radar').innerHTML = radar([{ scores: prev.scores, kind: 'prev' }, { scores, kind: 'now' }]) + radarLegend(true, `Было · ${fmtDate(prev.date)}`, 'Стало'); root.querySelector('#as-tiles').innerHTML = groupTiles(scores, prev.scores); };
+      const draw = () => { root.querySelector('#as-radar').innerHTML = radar([{ scores: prev.scores, kind: 'prev' }, { scores, kind: 'now' }]) + radarLegend(true, `Было · ${fmtDate(prev.date)}`, 'Стало'); root.querySelector('#as-tiles').innerHTML = scoreOrb(scores, prev.scores); };
       draw(); bindSkillsEditor(root.querySelector('#as-skills'), scores, draw);
       root.querySelector('#as-save').addEventListener('click', () => {
         const same = SKILLS.every((k) => (scores[k.id] || 0) === (prev.scores[k.id] || 0));

@@ -5,6 +5,7 @@ import { loginView } from './views/login.js';
 import { studentsView } from './views/students.js';
 import { wizardView } from './views/wizard.js';
 import { studentView, assessView } from './views/student.js';
+import { shareView } from './views/share.js';
 
 // [шаблон пути, экран, нужна ли авторизация]
 const routes = [
@@ -13,6 +14,7 @@ const routes = [
   ['students/new', wizardView, true],
   ['student/:id', studentView, true],
   ['student/:id/assess', assessView, true],
+  ['share/:token', shareView, false],
 ];
 function match(path) {
   for (const [pat, fn, auth] of routes) {
@@ -56,7 +58,7 @@ function route(keep) {
 window.__rerender = () => route(true);
 window.addEventListener('hashchange', () => route(false));
 window.addEventListener('menty:error', (e) => toast(e.detail));
-window.addEventListener('menty:unauth', () => { forgetUser(); resetStore(); if (location.hash !== '#/login') location.hash = '#/login'; });
+window.addEventListener('menty:unauth', () => { forgetUser(); resetStore(); if (location.hash !== '#/login' && !location.hash.startsWith('#/share/')) location.hash = '#/login'; });
 
 document.addEventListener('click', (e) => {
   const a = e.target.closest('[data-act]');

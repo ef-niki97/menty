@@ -7,6 +7,7 @@ const MAX_DOC = 1024 * 1024;
 const SESSION_DAYS = 30;
 const COOKIE = 'menty_session';
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
 
 const enc = new TextEncoder();
 const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers } });
@@ -14,6 +15,7 @@ const fail = (status, error) => json({ error }, status);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const toB64 = (bytes) => { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(s); };
+const newToken = () => b64u(crypto.getRandomValues(new Uint8Array(32))); // 256 бит, 43 символа
 const fromB64 = (t) => Uint8Array.from(atob(t), (c) => c.charCodeAt(0));
 
 const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -46,6 +48,7 @@ async function ensureSchema(env) {
   await env.DB.batch([
     env.DB.prepare('CREATE TABLE IF NOT EXISTS students (id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL)'),
     env.DB.prepare('CREATE TABLE IF NOT EXISTS files (id TEXT PRIMARY KEY, type TEXT NOT NULL, size INTEGER NOT NULL)'),
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS shares (token TEXT PRIMARY KEY, student_id TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL)'),
     env.DB.prepare('CREATE TABLE IF NOT EXISTS file_chunks (id TEXT NOT NULL, n INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY (id, n))'),
   ]);
   schemaReady = true;
@@ -82,6 +85,17 @@ async function route(req, env, url) {
   }
   if (p === '/api/logout' && m === 'POST') return json({ ok: true }, 200, { 'set-cookie': cookie('', 0) });
 
+  // Публичная ссылка только для просмотра: отдаём карточку без личной заметки ментора.
+  const pub = p.match(/^\/api\/share\/([^/]+)$/);
+  if (pub && m === 'GET') {
+    if (!TOKEN_RE.test(pub[1])) return fail(404, 'Ссылка недействительна');
+    await ensureSchema(env);
+    const row = await env.DB.prepare('SELECT s.data FROM shares h JOIN students s ON s.id = h.student_id WHERE h.token = ?1').bind(pub[1]).first();
+    if (!row) return fail(404, 'Ссылка недействительна');
+    const { privateNote, ...student } = JSON.parse(row.data);
+    return json(student, 200, { 'x-robots-tag': 'noindex, nofollow' });
+  }
+
   if (!(await isAuthed(req, env))) return fail(401, 'Требуется вход');
   if (p === '/api/me' && m === 'GET') return json({ email: env.ADMIN_EMAIL });
 
@@ -102,7 +116,19 @@ async function route(req, env, url) {
     return json({ ok: true, count: students.length });
   }
 
-  let r = p.match(/^\/api\/students\/([^/]+)$/);
+  let r = p.match(/^\/api\/students\/([^/]+)\/share$/);
+  if (r && ID_RE.test(r[1])) {
+    const id = r[1], q = () => env.DB.prepare('SELECT token FROM shares WHERE student_id = ?1').bind(id).first();
+    if (m === 'GET') return json({ token: (await q())?.token || null });
+    if (m === 'POST') {
+      if (!(await env.DB.prepare('SELECT id FROM students WHERE id = ?1').bind(id).first())) return fail(404, 'Ученик не найден');
+      await env.DB.prepare('INSERT INTO shares (token, student_id, created_at) VALUES (?1, ?2, ?3) ON CONFLICT(student_id) DO NOTHING').bind(newToken(), id, new Date().toISOString()).run();
+      return json({ token: (await q()).token });
+    }
+    if (m === 'DELETE') { await env.DB.prepare('DELETE FROM shares WHERE student_id = ?1').bind(id).run(); return json({ ok: true }); }
+  }
+
+  r = p.match(/^\/api\/students\/([^/]+)$/);
   if (r && ID_RE.test(r[1])) {
     const id = r[1];
     if (m === 'PUT') {
@@ -114,6 +140,7 @@ async function route(req, env, url) {
       if (row) {
         const keys = (JSON.parse(row.data).cvs || []).map((c) => c.id).filter((k) => typeof k === 'string' && ID_RE.test(k));
         for (const k of keys) await deleteFile(env, k);
+        await env.DB.prepare('DELETE FROM shares WHERE student_id = ?1').bind(id).run();
         await env.DB.prepare('DELETE FROM students WHERE id = ?1').bind(id).run();
       }
       return json({ ok: true });

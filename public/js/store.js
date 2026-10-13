@@ -69,3 +69,8 @@ export async function importJson(text) {
 }
 export async function seed(list) { await api('POST', '/import', { students: list }); await initStore(); }
 export const uidNew = uid;
+
+// ---------- публичная ссылка на профиль ----------
+export const getShare = async (id) => (await api('GET', `/students/${id}/share`)).token;
+export const createShare = async (id) => (await api('POST', `/students/${id}/share`, {})).token;
+export const revokeShare = (id) => api('DELETE', `/students/${id}/share`);

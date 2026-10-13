@@ -313,3 +313,8 @@ select.field.sm{padding-right:42px}
 @media (max-width:640px){.orb-wrap{grid-template-columns:1fr}}
 .orb-tot .delta{letter-spacing:0;font-size:13px;margin-left:0}
 .orb-row .delta{flex:none}
+
+/* публичный просмотр */
+.share-top{max-width:var(--page-max);margin:0 auto;padding:20px var(--gutter) 0;display:flex;align-items:center;justify-content:space-between}
+.share .chip .i{font-size:16px}
+span.tk{cursor:default}span.tk:hover{border-color:var(--black-20)}.task.done span.tk:hover{border-color:var(--ink)}

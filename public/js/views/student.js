@@ -22,74 +22,82 @@ function skillRows(now, base) {
     }).join('')}</div>`).join('');
 }
 
-function competenciesCard(s, now, base) {
+function competenciesCard(s, now, base, ro) {
   const opts = s.assessments.filter((a) => a.id !== now.id);
   return `<div class="card"><div class="card-h"><h2 class="d-s">Компетенции</h2>
-      <div class="row">${opts.length ? `<div class="selw">${icon('expand_more', 'trail')}<select class="field sm" id="cmp-sel" aria-label="Сравнить с"><option value="">Без сравнения</option>${opts.map((a) => `<option value="${a.id}" ${base?.id === a.id ? 'selected' : ''}>Было: ${fmtDate(a.date)}</option>`).join('')}</select></div>` : ''}
-      <a class="pill dark sm" href="#/student/${s.id}/assess">${icon('add_chart')} Новая оценка</a></div></div>
+      ${ro ? '' : `<div class="row">${opts.length ? `<div class="selw">${icon('expand_more', 'trail')}<select class="field sm" id="cmp-sel" aria-label="Сравнить с"><option value="">Без сравнения</option>${opts.map((a) => `<option value="${a.id}" ${base?.id === a.id ? 'selected' : ''}>Было: ${fmtDate(a.date)}</option>`).join('')}</select></div>` : ''}
+      <a class="pill dark sm" href="#/student/${s.id}/assess">${icon('add_chart')} Новая оценка</a></div>`}</div>
     ${radar([...(base ? [{ scores: base.scores, kind: 'prev' }] : []), { scores: now.scores, kind: 'now' }])}
     ${radarLegend(!!base, base ? `Было · ${fmtDate(base.date)}` : '', `${base ? 'Стало' : 'Оценка'} · ${fmtDate(now.date)}`)}
     ${scoreOrb(now.scores, base?.scores, { animate: true })}
     <details class="more"><summary>Все навыки подробно ${icon('expand_more')}</summary>${skillRows(now, base)}</details></div>`;
 }
 
-function historyCard(s, now) {
+function historyCard(s, now, ro) {
   const list = [...s.assessments].reverse();
   return `<div class="card"><div class="card-h"><h2 class="d-s">История оценок</h2><span class="small">${s.assessments.length} шт.</span></div><div class="tl">
     ${list.map((a) => { const i = s.assessments.indexOf(a), prev = s.assessments[i - 1], t = total(a.scores), isNow = a.id === now.id;
       return `<div class="tl-i ${isNow ? 'acc' : ''}"><div class="row spread"><div class="tl-t">${fmtDate(a.date)} <span class="muted">· ${fmt1(t)}/5</span> ${prev ? dChip(t - total(prev.scores)) : ''}</div>
-        ${isNow ? '<span class="chip acc">Текущая</span>' : `<button class="chip" data-act="st-cmp" data-id="${a.id}">Сравнить</button>`}</div>${a.comment ? `<div class="tl-s">${esc(a.comment)}</div>` : ''}</div>`; }).join('')}</div></div>`;
+        ${isNow ? '<span class="chip acc">Текущая</span>' : ro ? '' : `<button class="chip" data-act="st-cmp" data-id="${a.id}">Сравнить</button>`}</div>${a.comment ? `<div class="tl-s">${esc(a.comment)}</div>` : ''}</div>`; }).join('')}</div></div>`;
 }
 
-const goalCard = (s) => {
+const goalCard = (s, ro) => {
   const g = s.goal, h = HORIZONS.find(([v]) => v === g.horizon);
   const empty = !g.position && !g.company && !g.salary;
   return `<div class="card dark goal"><div class="eyebrow lt">Цель</div>
-    ${empty ? '<p class="muted" style="margin-top:8px">Цель не заполнена — добавьте её через «Редактировать».</p>' : `<div class="goal-pos">${esc(g.position || 'Должность не указана')}</div>
+    ${empty ? `<p class="muted" style="margin-top:8px">${ro ? 'Цель пока не указана.' : 'Цель не заполнена — добавьте её через «Редактировать».'}</p>` : `<div class="goal-pos">${esc(g.position || 'Должность не указана')}</div>
     ${g.company ? `<div class="muted">${esc(g.company)}</div>` : ''}
     <div class="goal-row"><div><span>Зарплата</span><b>${fmtMoney(g.salary, g.currency)}</b></div><div><span>Срок</span><b>${h && h[0] ? h[1] : '—'}</b></div><div><span>Сейчас</span><b>${esc(s.grade)}</b></div></div>`}</div>`;
 };
 
-function portfolioCard(s) {
+function portfolioCard(s, ro) {
   const list = [...s.portfolios].reverse();
-  return `<div class="card"><div class="card-h"><h2 class="d-s">Портфолио</h2><button class="pill ghost sm" data-act="st-add-pf">${icon('add')} Новая версия</button></div>
+  return `<div class="card"><div class="card-h"><h2 class="d-s">Портфолио</h2>${ro ? '' : `<button class="pill ghost sm" data-act="st-add-pf">${icon('add')} Новая версия</button>`}</div>
     ${list.length ? `<div class="list">${list.map((p, i) => `<div class="li ${i ? 'old' : ''}"><span class="ico-sq">${icon('link')}</span><div class="grow"><a class="link ell" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.title)}</a><div class="small ell">${esc(host(p.url))} · ${fmtDate(p.addedAt)}</div>${p.note ? `<div class="small note">${esc(p.note)}</div>` : ''}</div>${i === 0 ? '<span class="chip ok">Актуальное</span>' : ''}</div>`).join('')}</div>` : '<p class="small">Ссылок пока нет.</p>'}
     ${list.length > 1 ? '<p class="small hint">Прошлые версии сохраняются в истории.</p>' : ''}</div>`;
 }
 
-function cvCard(s) {
+function cvCard(s, ro) {
   const list = [...s.cvs].reverse();
-  return `<div class="card"><div class="card-h"><h2 class="d-s">CV</h2><label class="pill ghost sm" for="cv-up" style="cursor:pointer">${icon('upload')} Загрузить новое</label><input id="cv-up" type="file" hidden accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt,.rtf"></div>
-    ${list.length ? `<div class="list">${list.map((c, i) => `<div class="li ${i ? 'old' : ''}"><span class="ico-sq">${icon('description')}</span><div class="grow"><b class="ell">${esc(c.name)}</b><div class="small">${fmtSize(c.size)} · ${fmtDate(c.addedAt)}</div></div>${i === 0 ? '<span class="chip ok">Актуальное</span>' : ''}<button class="chip" data-act="st-cv-dl" data-id="${c.id}" data-name="${esc(c.name)}" aria-label="Скачать">${icon('download')}</button></div>`).join('')}</div>` : '<p class="small">CV пока не загружено.</p>'}</div>`;
+  return `<div class="card"><div class="card-h"><h2 class="d-s">CV</h2>${ro ? '' : `<label class="pill ghost sm" for="cv-up" style="cursor:pointer">${icon('upload')} Загрузить новое</label><input id="cv-up" type="file" hidden accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt,.rtf">`}</div>
+    ${list.length ? `<div class="list">${list.map((c, i) => `<div class="li ${i ? 'old' : ''}"><span class="ico-sq">${icon('description')}</span><div class="grow"><b class="ell">${esc(c.name)}</b><div class="small">${fmtSize(c.size)} · ${fmtDate(c.addedAt)}</div></div>${i === 0 ? '<span class="chip ok">Актуальное</span>' : ''}${ro ? '' : `<button class="chip" data-act="st-cv-dl" data-id="${c.id}" data-name="${esc(c.name)}" aria-label="Скачать">${icon('download')}</button>`}</div>`).join('')}</div>` : '<p class="small">CV пока не загружено.</p>'}</div>`;
 }
 
-const tasksCard = (s) => `<div class="card"><div class="card-h"><h2 class="d-s">Задачи</h2><span class="small">${s.tasks.filter((t) => t.done).length}/${s.tasks.length}</span></div>
-  <div class="tasks">${s.tasks.map((t) => `<div class="task ${t.done ? 'done' : ''}"><button class="tk" data-act="st-task" data-id="${t.id}" aria-label="Отметить">${t.done ? icon('check') : ''}</button><span class="grow">${esc(t.text)}</span><button class="x" data-act="st-task-del" data-id="${t.id}" aria-label="Удалить">${icon('close')}</button></div>`).join('') || '<p class="small">Нет задач.</p>'}</div>
-  <form class="row add-row" id="task-form"><input class="field sm" name="text" placeholder="Новая задача для ученика" autocomplete="off" required><button class="pill dark sm" type="submit">Добавить</button></form></div>`;
+const tasksCard = (s, ro) => `<div class="card"><div class="card-h"><h2 class="d-s">Задачи</h2><span class="small">${s.tasks.filter((t) => t.done).length}/${s.tasks.length}</span></div>
+  <div class="tasks">${s.tasks.map((t) => `<div class="task ${t.done ? 'done' : ''}">${ro ? `<span class="tk">${t.done ? icon('check') : ''}</span>` : `<button class="tk" data-act="st-task" data-id="${t.id}" aria-label="Отметить">${t.done ? icon('check') : ''}</button>`}<span class="grow">${esc(t.text)}</span>${ro ? '' : `<button class="x" data-act="st-task-del" data-id="${t.id}" aria-label="Удалить">${icon('close')}</button>`}</div>`).join('') || '<p class="small">Нет задач.</p>'}</div>
+  ${ro ? '' : `<form class="row add-row" id="task-form"><input class="field sm" name="text" placeholder="Новая задача для ученика" autocomplete="off" required><button class="pill dark sm" type="submit">Добавить</button></form>`}</div>`;
 
-const sessionsCard = (s) => `<div class="card"><div class="card-h"><h2 class="d-s">Встречи и заметки</h2></div>
-  <form class="col" id="session-form"><div class="row">${datePicker('date', today())}<button class="pill dark sm" type="submit" style="margin-left:auto">Записать</button></div><textarea class="field sm" name="text" rows="2" placeholder="О чём говорили, договорённости, что обсудить дальше" required></textarea></form>
-  <div class="tl" style="margin-top:20px">${[...s.sessions].sort((a, b) => b.date.localeCompare(a.date)).map((x) => `<div class="tl-i"><div class="row spread"><div class="tl-t">${fmtDate(x.date)}</div><button class="x" data-act="st-sess-del" data-id="${x.id}" aria-label="Удалить">${icon('close')}</button></div><div class="tl-s pre">${esc(x.text)}</div></div>`).join('') || '<p class="small">Записей пока нет.</p>'}</div></div>`;
+const sessionsCard = (s, ro) => `<div class="card"><div class="card-h"><h2 class="d-s">Встречи и заметки</h2></div>
+  ${ro ? '' : `<form class="col" id="session-form"><div class="row">${datePicker('date', today())}<button class="pill dark sm" type="submit" style="margin-left:auto">Записать</button></div><textarea class="field sm" name="text" rows="2" placeholder="О чём говорили, договорённости, что обсудить дальше" required></textarea></form>`}
+  <div class="tl" style="margin-top:${ro ? 0 : 20}px">${[...s.sessions].sort((a, b) => b.date.localeCompare(a.date)).map((x) => `<div class="tl-i"><div class="row spread"><div class="tl-t">${fmtDate(x.date)}</div>${ro ? '' : `<button class="x" data-act="st-sess-del" data-id="${x.id}" aria-label="Удалить">${icon('close')}</button>`}</div><div class="tl-s pre">${esc(x.text)}</div></div>`).join('') || '<p class="small">Записей пока нет.</p>'}</div></div>`;
 
 const privateCard = (s) => `<div class="card flat"><div class="card-h"><h2 class="d-s">${icon('lock')} Личная заметка</h2><span class="small">видите только вы</span></div>
   <textarea class="field" id="private-note" rows="4" placeholder="Сильные стороны, риски, на что обратить внимание…">${esc(s.privateNote)}</textarea></div>`;
 
 // ---------- страница ученика ----------
+// Общая вёрстка для кабинета ментора и для публичной ссылки (ro = только просмотр: без кнопок, форм и личной заметки).
+export function studentPage(s, base, ro = false) {
+  const now = latest(s), st = STATUSES[s.status] || STATUSES.active, g = growth(s);
+  const av = ro ? avatar(s, 'xl') : `<label class="av-edit" for="av-up" title="Сменить фото">${avatar(s, 'xl')}<span class="av-cam">${icon('photo_camera')}</span></label><input id="av-up" type="file" accept="image/*" hidden>`;
+  return `<div class="hero"><div class="hero-l">${av}<div><h1 class="d-m">${esc(fullName(s))}</h1>
+      <div class="row wrap" style="margin:10px 0 6px"><span class="chip on">${esc(s.grade)}</span><span class="chip ${st.tone}">${st.label}</span><span class="chip">${fmt1(total(now.scores))}/5 ${g === null ? '' : dChip(g)}</span></div>
+      <div class="muted">${esc([s.role, s.company].filter(Boolean).join(' · ') || 'Место работы не указано')}</div></div></div>
+      ${ro ? '' : `<div class="row"><button class="pill ghost" data-act="st-share">${icon('ios_share')} Поделиться</button><button class="pill ghost" data-act="st-edit">${icon('edit')} Редактировать</button></div>`}</div>
+    <div class="detail"><div class="col-main">${competenciesCard(s, now, base, ro)}${historyCard(s, now, ro)}${sessionsCard(s, ro)}</div>
+      <div class="col-side">${goalCard(s, ro)}${portfolioCard(s, ro)}${cvCard(s, ro)}${tasksCard(s, ro)}${ro ? '' : privateCard(s)}</div></div>`;
+}
+// Оценка, с которой сравниваем по умолчанию: самая первая (если оценок больше одной).
+export const defaultBase = (s) => (s.assessments.length > 1 ? s.assessments[0] : null);
+
 export function studentView({ id }) {
   const s = store.getStudent(id); if (!s) return notFound();
-  if (cmp.id !== id) cmp = { id, base: s.assessments.length > 1 ? s.assessments[0].id : '' };
+  if (cmp.id !== id) cmp = { id, base: defaultBase(s)?.id || '' };
   const now = latest(s), base = s.assessments.find((a) => a.id === cmp.base && a.id !== now.id) || null;
-  const st = STATUSES[s.status] || STATUSES.active, g = growth(s);
   return {
     shell: 'app', nav: 'students',
     html: `<div class="page view" data-sid="${s.id}" style="padding-top:36px">
       <a class="back" href="#/students">${icon('arrow_back')} Ученики</a>
-      <div class="hero"><div class="hero-l"><label class="av-edit" for="av-up" title="Сменить фото">${avatar(s, 'xl')}<span class="av-cam">${icon('photo_camera')}</span></label><input id="av-up" type="file" accept="image/*" hidden><div><h1 class="d-m">${esc(fullName(s))}</h1>
-        <div class="row wrap" style="margin:10px 0 6px"><span class="chip on">${esc(s.grade)}</span><span class="chip ${st.tone}">${st.label}</span><span class="chip">${fmt1(total(now.scores))}/5 ${g === null ? '' : dChip(g)}</span></div>
-        <div class="muted">${esc([s.role, s.company].filter(Boolean).join(' · ') || 'Место работы не указано')}</div></div></div>
-        <button class="pill ghost" data-act="st-edit">${icon('edit')} Редактировать</button></div>
-      <div class="detail"><div class="col-main">${competenciesCard(s, now, base)}${historyCard(s, now)}${sessionsCard(s)}</div>
-        <div class="col-side">${goalCard(s)}${portfolioCard(s)}${cvCard(s)}${tasksCard(s)}${privateCard(s)}</div></div></div>`,
+      ${studentPage(s, base)}</div>`,
     mount(root) {
       root.querySelector('#cmp-sel')?.addEventListener('change', (e) => { cmp.base = e.target.value; rerender(); });
       root.querySelector('#private-note').addEventListener('change', (e) => { store.updateStudent(id, { privateNote: e.target.value.trim() }); toast('Заметка сохранена'); });
@@ -182,3 +190,32 @@ export function assessView({ id }) {
     },
   };
 }
+
+// ---------- публичная ссылка ----------
+ACT['st-share'] = (el) => {
+  const id = sid(el), url = (t) => `${location.origin}${location.pathname}#/share/${t}`;
+  openModal(`<h2 class="d-s">Поделиться профилем</h2>
+    <p class="small" style="margin:6px 0 20px">Ссылка открывает профиль только для просмотра: без кнопок, без входа и без вашей личной заметки. Данные всегда актуальные.</p>
+    <div id="sh-body"><div class="small">Загрузка…</div></div>
+    <div class="row" style="justify-content:flex-end;margin-top:20px"><button type="button" class="pill ghost" data-close>Закрыть</button></div>`,
+  async (m) => {
+    const body = m.querySelector('#sh-body');
+    const paint = (t) => {
+      body.innerHTML = t
+        ? `<div class="col" style="gap:12px"><input class="field" id="sh-url" readonly value="${esc(url(t))}"><div class="row spread"><button type="button" class="pill dark" id="sh-copy">${icon('content_copy')} Скопировать ссылку</button><button type="button" class="pill danger-ghost" id="sh-off">Отключить</button></div><p class="small">Любой, у кого есть ссылка, сможет открыть профиль. Если отключить, она перестанет работать.</p></div>`
+        : `<button type="button" class="pill dark" id="sh-on">${icon('link')} Создать ссылку</button>`;
+    };
+    try { paint(await store.getShare(id)); } catch { body.innerHTML = '<div class="form-err">Не удалось загрузить</div>'; return; }
+    m.addEventListener('click', async (e) => {
+      try {
+        if (e.target.closest('#sh-on')) paint(await store.createShare(id));
+        else if (e.target.closest('#sh-off')) { if (confirm('Отключить ссылку? Те, у кого она есть, потеряют доступ.')) { await store.revokeShare(id); paint(null); toast('Ссылка отключена'); } }
+        else if (e.target.closest('#sh-copy')) {
+          const inp = m.querySelector('#sh-url');
+          try { await navigator.clipboard.writeText(inp.value); } catch { inp.select(); document.execCommand('copy'); }
+          toast('Ссылка скопирована');
+        }
+      } catch { toast('Не удалось выполнить действие'); }
+    });
+  });
+};

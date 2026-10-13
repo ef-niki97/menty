@@ -76,18 +76,13 @@ export function scoreOrb(scores, prevScores, { animate = false } = {}) {
     return track + fill + tick + lab;
   }).join('');
 
-  const svg = `<svg class="orb-svg" viewBox="0 -26 400 346" role="img" aria-label="Итоговая оценка по группам навыков">
+  const svg = `<svg class="orb-svg" viewBox="-40 -26 480 330" role="img" aria-label="Итоговая оценка по группам навыков">
     <defs>
       <clipPath id="oc${n}"><circle cx="${cx}" cy="${cy}" r="${RO}"/></clipPath>
       <filter id="ob${n}" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="19"/></filter>
-      <filter id="os${n}" x="-30%" y="-100%" width="160%" height="300%"><feGaussianBlur stdDeviation="9"/></filter>
-      <radialGradient id="oh${n}" cx=".3" cy=".22" r=".55"><stop offset="0" stop-color="#fff" stop-opacity=".6"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
-      <linearGradient id="ot${n}" x1="0" y1="0" x2="0" y2="1"><stop offset=".6" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".78"/></linearGradient>
     </defs>
-    <ellipse cx="${cx}" cy="${cy + RO + 18}" rx="64" ry="9" fill="rgba(17,17,19,.16)" filter="url(#os${n})"/>
     <circle cx="${cx}" cy="${cy}" r="${RO}" fill="#fff"/>
-    <g clip-path="url(#oc${n})"><g filter="url(#ob${n})">${blobs}</g><rect x="${cx - RO}" y="${cy - RO}" width="${RO * 2}" height="${RO * 2}" fill="url(#ot${n})"/><circle cx="${cx}" cy="${cy}" r="${RO}" fill="url(#oh${n})"/></g>
-    <circle cx="${cx}" cy="${cy}" r="${RO}" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="1.5"/>
+    <g clip-path="url(#oc${n})"><g filter="url(#ob${n})">${blobs}</g></g>
     ${rings}</svg>`;
 
   const tot = total(scores), dt = prevScores ? tot - total(prevScores) : null;

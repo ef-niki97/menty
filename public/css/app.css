@@ -86,7 +86,7 @@ button.chip:hover{background:var(--black-8)}
 .delta.up{background:var(--green-bg);color:var(--green)}.delta.down{background:var(--red-bg);color:var(--red)}
 .bar{height:6px;border-radius:99px;background:var(--black-6);overflow:hidden;position:relative}
 .bar>i{position:absolute;inset:0 auto 0 0;background:var(--ink);border-radius:99px;transition:width .6s var(--ease)}
-.av{display:inline-grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--black-6);color:var(--ink);font:700 14px var(--font);letter-spacing:0;flex:none;box-shadow:inset 0 0 0 1px var(--black-8)}
+.av{overflow:hidden;display:inline-grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--black-6);color:var(--ink);font:700 14px var(--font);letter-spacing:0;flex:none;box-shadow:inset 0 0 0 1px var(--black-8)}
 .av.lg{width:56px;height:56px;font-size:19px}.av.xl{width:84px;height:84px;font-size:28px}
 
 /* ---------- Inputs ---------- */
@@ -272,3 +272,8 @@ input[type=number].field{-moz-appearance:textfield}
 .grid .selw,.col .selw{display:block}
 .filters .seg{max-width:100%;overflow-x:auto;scrollbar-width:none}
 select.field.sm{padding-right:42px}
+
+.av img{width:100%;height:100%;object-fit:cover;display:block}
+.av-edit{position:relative;display:inline-block;border-radius:50%;cursor:pointer;flex:none}
+.av-cam{position:absolute;inset:0;border-radius:50%;background:rgba(17,17,19,.5);color:#fff;display:grid;place-items:center;opacity:0;transition:opacity var(--dur-1)}
+.av-edit:hover .av-cam,.av-edit:focus-within .av-cam{opacity:1}

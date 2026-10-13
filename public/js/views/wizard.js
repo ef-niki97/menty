@@ -1,13 +1,13 @@
 import { addStudent } from '../store.js';
 import { GRADES, CURRENCIES, HORIZONS } from '../config.js';
-import { esc, icon, avatar, safeUrl, fmtSize, toast, ACT } from '../ui.js';
+import { esc, icon, avatar, safeUrl, fmtSize, toast, ACT, fileToAvatar } from '../ui.js';
 import { radar, radarLegend, groupTiles } from '../radar.js';
 import { skillsEditorHtml, bindSkillsEditor } from '../skills-editor.js';
 import { total, fmt1 } from '../metrics.js';
 
 const STEPS = ['Ученик', 'Цели', 'Компетенции', 'Итог'];
 const MAX_FILE = 10 * 1024 * 1024;
-const blank = () => ({ firstName: '', lastName: '', grade: 'Junior', status: 'active', company: '', role: '', portfolio: '', cv: null, targetRole: '', targetCompany: '', salary: '', currency: '₽', horizon: '', scores: {}, privateNote: '' });
+const blank = () => ({ avatar: '', firstName: '', lastName: '', grade: 'Junior', status: 'active', company: '', role: '', portfolio: '', cv: null, targetRole: '', targetCompany: '', salary: '', currency: '₽', horizon: '', scores: {}, privateNote: '' });
 
 let draft = blank(), step = 1, saving = false;
 const nameOk = () => draft.firstName.trim() && draft.lastName.trim();
@@ -15,9 +15,9 @@ const nameOk = () => draft.firstName.trim() && draft.lastName.trim();
 const input = (label, f, { ph = '', type = 'text', hint = '' } = {}) => `<div><label class="lbl">${label}</label><input class="field" data-f="${f}" type="${type}" placeholder="${esc(ph)}" value="${esc(draft[f])}" autocomplete="off">${hint ? `<div class="small hint">${hint}</div>` : ''}</div>`;
 
 function stepProfile() {
-  const demoAv = avatar({ firstName: draft.firstName || '?', lastName: draft.lastName || '' }, 'xl');
+  const demoAv = avatar({ firstName: draft.firstName || '?', lastName: draft.lastName || '', avatar: draft.avatar }, 'xl');
   return `<div class="eyebrow">Шаг 1 из 4</div><h1 class="d-m">Расскажите об ученике</h1>
-    <div class="profile-top">${demoAv}<div class="small">Аватарка пока стандартная — загрузка фото появится позже.</div></div>
+    <div class="profile-top">${demoAv}<div class="col" style="gap:8px"><div class="row wrap"><label class="pill ghost sm" for="w-av" style="cursor:pointer">${icon('photo_camera')} ${draft.avatar ? 'Заменить фото' : 'Загрузить фото'}</label>${draft.avatar ? `<button type="button" class="pill ghost sm" data-act="w-av-clear">Убрать</button>` : ''}</div><div class="small">JPG, PNG или WebP. Фото обрежется по центру в квадрат.</div></div><input id="w-av" type="file" accept="image/*" hidden></div>
     <div class="grid g2">${input('Имя *', 'firstName', { ph: 'Анна' })}${input('Фамилия *', 'lastName', { ph: 'Соколова' })}</div>
     <div><label class="lbl">Грейд</label><div class="seg wrap" id="w-grade">${GRADES.map((g) => `<button type="button" class="${draft.grade === g ? 'on' : ''}" data-g="${esc(g)}">${esc(g)}</button>`).join('')}</div></div>
     <div class="grid g2">${input('Текущее место работы', 'company', { ph: 'Компания или «Фриланс»' })}${input('Должность', 'role', { ph: 'Junior-дизайнер' })}</div>
@@ -73,7 +73,10 @@ export function wizardView() {
       const go = (n) => { if (n > 1 && !nameOk()) { step = 1; paint(); toast('Укажите имя и фамилию ученика'); return; } step = Math.max(1, Math.min(4, n)); paint(); };
 
       main.addEventListener('input', (e) => { const f = e.target.dataset.f; if (!f) return; draft[f] = e.target.value; if (f === 'firstName' || f === 'lastName') syncFoot(); });
-      main.addEventListener('change', (e) => { if (e.target.id === 'w-cv') setCv(e.target.files[0]); });
+      main.addEventListener('change', async (e) => {
+        if (e.target.id === 'w-cv') setCv(e.target.files[0]);
+        if (e.target.id === 'w-av') { const f = e.target.files[0]; if (!f) return; try { draft.avatar = await fileToAvatar(f); paint(); } catch { toast('Не удалось прочитать изображение'); } }
+      });
       main.addEventListener('click', (e) => { const g = e.target.closest('#w-grade button'); if (g) { draft.grade = g.dataset.g; main.querySelectorAll('#w-grade button').forEach((b) => b.classList.toggle('on', b === g)); } });
       main.addEventListener('dragover', (e) => { if (e.target.closest('#w-drop')) { e.preventDefault(); e.target.closest('#w-drop').classList.add('over'); } });
       main.addEventListener('dragleave', (e) => e.target.closest('#w-drop')?.classList.remove('over'));
@@ -83,6 +86,7 @@ export function wizardView() {
       ACT['w-next'] = () => go(step + 1);
       ACT['w-back'] = () => go(step - 1);
       ACT['w-goto'] = (el) => go(+el.dataset.n);
+      ACT['w-av-clear'] = () => { draft.avatar = ''; paint(); };
       ACT['w-cv-clear'] = (_, e) => { e.preventDefault(); draft.cv = null; paint(); };
       ACT['w-create'] = async () => {
         if (!nameOk() || saving) return;

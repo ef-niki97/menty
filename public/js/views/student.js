@@ -1,6 +1,6 @@
 import * as store from '../store.js';
 import { GRADES, STATUSES, CURRENCIES, HORIZONS, GROUPS, SKILLS, LEVELS } from '../config.js';
-import { esc, icon, avatar, fullName, fmtDate, fmtMoney, fmtSize, today, safeUrl, host, toast, openModal, downloadBlob, ACT } from '../ui.js';
+import { esc, icon, avatar, fileToAvatar, fullName, fmtDate, fmtMoney, fmtSize, today, safeUrl, host, toast, openModal, downloadBlob, ACT } from '../ui.js';
 import { radar, radarLegend, groupTiles } from '../radar.js';
 import { skillsEditorHtml, bindSkillsEditor } from '../skills-editor.js';
 import { total, latest, growth, fmt1, signed } from '../metrics.js';
@@ -83,7 +83,7 @@ export function studentView({ id }) {
     shell: 'app', nav: 'students',
     html: `<div class="page view" data-sid="${s.id}" style="padding-top:36px">
       <a class="back" href="#/students">${icon('arrow_back')} Ученики</a>
-      <div class="hero"><div class="hero-l">${avatar(s, 'xl')}<div><h1 class="d-m">${esc(fullName(s))}</h1>
+      <div class="hero"><div class="hero-l"><label class="av-edit" for="av-up" title="Сменить фото">${avatar(s, 'xl')}<span class="av-cam">${icon('photo_camera')}</span></label><input id="av-up" type="file" accept="image/*" hidden><div><h1 class="d-m">${esc(fullName(s))}</h1>
         <div class="row wrap" style="margin:10px 0 6px"><span class="chip on">${esc(s.grade)}</span><span class="chip ${st.tone}">${st.label}</span><span class="chip">${fmt1(total(now.scores))}/5 ${g === null ? '' : dChip(g)}</span></div>
         <div class="muted">${esc([s.role, s.company].filter(Boolean).join(' · ') || 'Место работы не указано')}</div></div></div>
         <button class="pill ghost" data-act="st-edit">${icon('edit')} Редактировать</button></div>
@@ -94,6 +94,10 @@ export function studentView({ id }) {
       root.querySelector('#private-note').addEventListener('change', (e) => { store.updateStudent(id, { privateNote: e.target.value.trim() }); toast('Заметка сохранена'); });
       root.querySelector('#task-form').addEventListener('submit', (e) => { e.preventDefault(); const t = new FormData(e.target).get('text'); if (t.trim()) { store.addTask(id, t); rerender(); } });
       root.querySelector('#session-form').addEventListener('submit', (e) => { e.preventDefault(); const f = new FormData(e.target); store.addSession(id, { date: f.get('date'), text: f.get('text') }); toast('Запись добавлена'); rerender(); });
+      root.querySelector('#av-up').addEventListener('change', async (e) => {
+        const f = e.target.files[0]; if (!f) return;
+        try { store.updateStudent(id, { avatar: await fileToAvatar(f) }); toast('Фото обновлено'); rerender(); } catch { toast('Не удалось прочитать изображение'); }
+      });
       root.querySelector('#cv-up').addEventListener('change', async (e) => {
         const f = e.target.files[0]; if (!f) return; if (f.size > MAX_FILE) { toast('Файл больше 10 МБ'); return; }
         try { await store.addCv(id, f); toast('Новая версия CV загружена'); rerender(); } catch { toast('Не удалось сохранить файл'); }
@@ -128,6 +132,7 @@ ACT['st-edit'] = (el) => {
   const f = (label, name, v, ph = '', type = 'text') => `<div><label class="lbl">${label}</label><input class="field" name="${name}" type="${type}" value="${esc(v)}" placeholder="${esc(ph)}" autocomplete="off"></div>`;
   const sel = (label, name, opts, cur) => `<div><label class="lbl">${label}</label><div class="selw">${icon('expand_more', 'trail')}<select class="field" name="${name}">${opts.map(([v, l]) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div></div>`;
   openModal(`<h2 class="d-s" style="margin-bottom:20px">Редактировать ученика</h2><form class="col" id="ed-form">
+    ${s.avatar ? `<div class="row">${avatar(s, 'lg')}<button type="button" class="pill ghost sm" id="ed-av-del">Убрать фото</button></div>` : ''}
     <div class="grid g2">${f('Имя', 'firstName', s.firstName)}${f('Фамилия', 'lastName', s.lastName)}</div>
     <div class="grid g2">${sel('Грейд', 'grade', GRADES.map((x) => [x, x]), s.grade)}${sel('Статус', 'status', Object.entries(STATUSES).map(([k, v]) => [k, v.label]), s.status)}</div>
     <div class="grid g2">${f('Компания', 'company', s.company)}${f('Должность', 'role', s.role)}</div>
@@ -143,6 +148,7 @@ ACT['st-edit'] = (el) => {
         goal: { position: d.targetRole.trim(), company: d.targetCompany.trim(), salary: d.salary ? Number(d.salary) : null, currency: d.currency, horizon: d.horizon } });
       close(); toast('Сохранено'); rerender();
     });
+    m.querySelector('#ed-av-del')?.addEventListener('click', () => { store.updateStudent(id, { avatar: '' }); close(); toast('Фото убрано'); rerender(); });
     m.querySelector('#ed-del').addEventListener('click', async () => {
       if (!confirm(`Удалить ${fullName(s)} вместе с историей оценок и файлами? Это нельзя отменить.`)) return;
       await store.removeStudent(id); close(); toast('Ученик удалён'); location.hash = '#/students';

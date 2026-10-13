@@ -33,8 +33,8 @@ export function loginView() {
       const form = root.querySelector('#login-form'), err = root.querySelector('#l-err');
       form.addEventListener('submit', async (e) => {
         e.preventDefault(); const f = new FormData(form);
-        const ok = await login(f.get('email') || '', f.get('password') || '');
-        if (ok) { try { await initStore(); } catch { /* список подгрузится позже */ } location.hash = '#/students'; } else { err.classList.remove('hide'); form.querySelector('#l-pass').select(); }
+        const res = await login(f.get('email') || '', f.get('password') || '');
+        if (res === 'ok') { try { await initStore(); } catch { /* список подгрузится позже */ } location.hash = '#/students'; } else { err.lastChild.textContent = res === 'bad' ? ' Неверная почта или пароль' : ' Ошибка сервера: проверьте, что заданы секреты ADMIN_PASSWORD и SESSION_SECRET'; err.classList.remove('hide'); form.querySelector('#l-pass').select(); }
       });
       root.querySelector('#l-email').focus();
     },

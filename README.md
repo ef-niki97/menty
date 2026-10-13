@@ -11,7 +11,7 @@
 2. **Файлы.** R2 → *Create bucket*, имя `menty-files` (для включения R2 Cloudflare может попросить карту; бесплатного лимита хватает).
 3. **Проект.** Workers & Pages → *Create* → *Import a repository* → выберите `menty`.
    Build command оставьте пустым, Deploy command: `npx wrangler deploy`.
-4. **Секреты.** Worker `menty` → Settings → Variables and Secrets → добавьте как **Secret**:
+3. **Секреты.** Worker `menty` → Settings → Variables and Secrets → добавьте как **Secret**:
    - `ADMIN_PASSWORD` — ваш пароль для входа;
    - `SESSION_SECRET` — любая длинная случайная строка (32+ символов).
 5. Откройте выданный адрес `menty.<ваш-аккаунт>.workers.dev` и войдите: почта `efimtsev.spb@gmail.com` и ваш пароль.
@@ -21,7 +21,7 @@
 ## Структура
 
 ```
-wrangler.toml       настройки Worker: статика, D1, R2, почта администратора
+wrangler.toml       настройки Worker: статика, D1, почта администратора
 src/worker.js       API: /api/login, /api/students, /api/files …
 public/index.html
 public/css/         tokens.css (брендовый цвет — чёрный, --ink), app.css

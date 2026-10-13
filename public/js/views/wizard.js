@@ -6,7 +6,7 @@ import { skillsEditorHtml, bindSkillsEditor } from '../skills-editor.js';
 import { total, fmt1 } from '../metrics.js';
 
 const STEPS = ['Ученик', 'Цели', 'Компетенции', 'Итог'];
-const MAX_FILE = 15 * 1024 * 1024;
+const MAX_FILE = 10 * 1024 * 1024;
 const blank = () => ({ firstName: '', lastName: '', grade: 'Junior', status: 'active', company: '', role: '', portfolio: '', cv: null, targetRole: '', targetCompany: '', salary: '', currency: '₽', horizon: '', scores: {}, privateNote: '' });
 
 let draft = blank(), step = 1, saving = false;
@@ -23,7 +23,7 @@ function stepProfile() {
     <div class="grid g2">${input('Текущее место работы', 'company', { ph: 'Компания или «Фриланс»' })}${input('Должность', 'role', { ph: 'Junior-дизайнер' })}</div>
     ${input('Портфолио', 'portfolio', { ph: 'behance.net/…, сайт или другая ссылка', hint: 'Следующие версии портфолио можно будет добавлять в профиле — история сохранится.' })}
     <div><label class="lbl">CV</label>
-      <label class="drop ${draft.cv ? 'has' : ''}" id="w-drop" for="w-cv">${draft.cv ? `${icon('description')}<div class="grow"><b class="ell">${esc(draft.cv.name)}</b><div class="small">${fmtSize(draft.cv.size)}</div></div><button type="button" class="chip" data-act="w-cv-clear">${icon('close')} Убрать</button>` : `${icon('upload_file', 'ol')}<div><b>Загрузить CV</b><div class="small">PDF, DOC или DOCX до 15 МБ — нажмите или перетащите файл</div></div>`}</label>
+      <label class="drop ${draft.cv ? 'has' : ''}" id="w-drop" for="w-cv">${draft.cv ? `${icon('description')}<div class="grow"><b class="ell">${esc(draft.cv.name)}</b><div class="small">${fmtSize(draft.cv.size)}</div></div><button type="button" class="chip" data-act="w-cv-clear">${icon('close')} Убрать</button>` : `${icon('upload_file', 'ol')}<div><b>Загрузить CV</b><div class="small">PDF, DOC или DOCX до 10 МБ — нажмите или перетащите файл</div></div>`}</label>
       <input id="w-cv" type="file" hidden accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt,.rtf"></div>`;
 }
 const stepGoals = () => `<div class="eyebrow">Шаг 2 из 4</div><h1 class="d-m">Куда стремимся</h1><p class="lede" style="margin-top:-8px">Желаемая работа ученика — от неё будем отсчитывать прогресс.</p>
@@ -78,7 +78,7 @@ export function wizardView() {
       main.addEventListener('dragover', (e) => { if (e.target.closest('#w-drop')) { e.preventDefault(); e.target.closest('#w-drop').classList.add('over'); } });
       main.addEventListener('dragleave', (e) => e.target.closest('#w-drop')?.classList.remove('over'));
       main.addEventListener('drop', (e) => { if (e.target.closest('#w-drop')) { e.preventDefault(); setCv(e.dataTransfer.files[0]); } });
-      const setCv = (file) => { if (!file) return; if (file.size > MAX_FILE) { toast('Файл больше 15 МБ'); return; } draft.cv = file; paint(); };
+      const setCv = (file) => { if (!file) return; if (file.size > MAX_FILE) { toast('Файл больше 10 МБ'); return; } draft.cv = file; paint(); };
 
       ACT['w-next'] = () => go(step + 1);
       ACT['w-back'] = () => go(step - 1);

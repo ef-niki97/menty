@@ -16,9 +16,4 @@ binding = "DB"
 database_name = "menty"
 database_id = "7faf9afe-f324-4ba6-8de1-6a304e7e3426"
 
-# Файлы CV: Cloudflare → R2 → Create bucket с именем menty-files.
-[[r2_buckets]]
-binding = "FILES"
-bucket_name = "menty-files"
-
 # Секреты ADMIN_PASSWORD и SESSION_SECRET задаются в панели (не в этом файле) — см. README.

@@ -5,7 +5,7 @@ import { radar, radarLegend, groupTiles } from '../radar.js';
 import { skillsEditorHtml, bindSkillsEditor } from '../skills-editor.js';
 import { total, latest, growth, fmt1, signed } from '../metrics.js';
 
-const MAX_FILE = 15 * 1024 * 1024;
+const MAX_FILE = 10 * 1024 * 1024;
 let cmp = { id: '', base: '' }; // с какой оценкой сравниваем текущую
 const sid = (el) => el.closest('[data-sid]').dataset.sid;
 const rerender = () => window.__rerender();
@@ -95,7 +95,7 @@ export function studentView({ id }) {
       root.querySelector('#task-form').addEventListener('submit', (e) => { e.preventDefault(); const t = new FormData(e.target).get('text'); if (t.trim()) { store.addTask(id, t); rerender(); } });
       root.querySelector('#session-form').addEventListener('submit', (e) => { e.preventDefault(); const f = new FormData(e.target); store.addSession(id, { date: f.get('date'), text: f.get('text') }); toast('Запись добавлена'); rerender(); });
       root.querySelector('#cv-up').addEventListener('change', async (e) => {
-        const f = e.target.files[0]; if (!f) return; if (f.size > MAX_FILE) { toast('Файл больше 15 МБ'); return; }
+        const f = e.target.files[0]; if (!f) return; if (f.size > MAX_FILE) { toast('Файл больше 10 МБ'); return; }
         try { await store.addCv(id, f); toast('Новая версия CV загружена'); rerender(); } catch { toast('Не удалось сохранить файл'); }
       });
     },

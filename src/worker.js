@@ -1,7 +1,8 @@
-// Menty API: вход по почте и паролю, менти в D1 (JSON-документы), файлы CV в R2.
+// Menty API: вход по почте и паролю, менти и файлы CV — в D1 (файлы режутся на куски).
 // Статику сайта отдаёт сам Cloudflare (см. [assets] в wrangler.toml).
 
-const MAX_FILE = 15 * 1024 * 1024;
+const MAX_FILE = 10 * 1024 * 1024;
+const CHUNK = 192 * 1024; // сырых байт в куске; в базе кусок лежит как base64-текст (лимит строки D1 — 2 МБ)
 const MAX_DOC = 1024 * 1024;
 const SESSION_DAYS = 30;
 const COOKIE = 'menty_session';
@@ -11,6 +12,9 @@ const enc = new TextEncoder();
 const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers } });
 const fail = (status, error) => json({ error }, status);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+const toB64 = (bytes) => { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(s); };
+const fromB64 = (t) => Uint8Array.from(atob(t), (c) => c.charCodeAt(0));
 
 const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 async function hmac(secret, msg) {
@@ -39,9 +43,18 @@ const cookie = (value, maxAge) => `${COOKIE}=${value}; HttpOnly; Secure; SameSit
 let schemaReady = false;
 async function ensureSchema(env) {
   if (schemaReady) return;
-  await env.DB.prepare('CREATE TABLE IF NOT EXISTS students (id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL)').run();
+  await env.DB.batch([
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS students (id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL)'),
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS files (id TEXT PRIMARY KEY, type TEXT NOT NULL, size INTEGER NOT NULL)'),
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS file_chunks (id TEXT NOT NULL, n INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY (id, n))'),
+  ]);
   schemaReady = true;
 }
+
+const deleteFile = (env, id) => env.DB.batch([
+  env.DB.prepare('DELETE FROM file_chunks WHERE id = ?1').bind(id),
+  env.DB.prepare('DELETE FROM files WHERE id = ?1').bind(id),
+]);
 
 const validDoc = (d) => d && typeof d === 'object' && !Array.isArray(d) && typeof d.id === 'string' && ID_RE.test(d.id);
 const upsert = (env, d) => env.DB.prepare('INSERT INTO students (id, data, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(id) DO UPDATE SET data = ?2, updated_at = ?3')
@@ -100,7 +113,7 @@ async function route(req, env, url) {
       const row = await env.DB.prepare('SELECT data FROM students WHERE id = ?1').bind(id).first();
       if (row) {
         const keys = (JSON.parse(row.data).cvs || []).map((c) => c.id).filter((k) => typeof k === 'string' && ID_RE.test(k));
-        if (keys.length) await env.FILES.delete(keys);
+        for (const k of keys) await deleteFile(env, k);
         await env.DB.prepare('DELETE FROM students WHERE id = ?1').bind(id).run();
       }
       return json({ ok: true });
@@ -111,14 +124,24 @@ async function route(req, env, url) {
   if (r && ID_RE.test(r[1])) {
     const key = r[1];
     if (m === 'PUT') {
-      const body = await req.arrayBuffer();
-      if (body.byteLength > MAX_FILE) return fail(413, 'Файл больше 15 МБ');
-      await env.FILES.put(key, body, { httpMetadata: { contentType: req.headers.get('content-type') || 'application/octet-stream' } });
+      const bytes = new Uint8Array(await req.arrayBuffer());
+      if (bytes.length > MAX_FILE) return fail(413, 'Файл больше 10 МБ');
+      const stmts = [
+        env.DB.prepare('DELETE FROM file_chunks WHERE id = ?1').bind(key),
+        env.DB.prepare('INSERT INTO files (id, type, size) VALUES (?1, ?2, ?3) ON CONFLICT(id) DO UPDATE SET type = ?2, size = ?3')
+          .bind(key, req.headers.get('content-type') || 'application/octet-stream', bytes.length),
+      ];
+      for (let n = 0, off = 0; off < bytes.length; n++, off += CHUNK) stmts.push(env.DB.prepare('INSERT INTO file_chunks (id, n, data) VALUES (?1, ?2, ?3)').bind(key, n, toB64(bytes.subarray(off, off + CHUNK))));
+      for (let i = 0; i < stmts.length; i += 40) await env.DB.batch(stmts.slice(i, i + 40));
       return json({ ok: true });
     }
     if (m === 'GET') {
-      const obj = await env.FILES.get(key); if (!obj) return fail(404, 'Файл не найден');
-      return new Response(obj.body, { headers: { 'content-type': obj.httpMetadata?.contentType || 'application/octet-stream', 'content-disposition': 'attachment', 'x-content-type-options': 'nosniff', 'cache-control': 'no-store' } });
+      const meta = await env.DB.prepare('SELECT type, size FROM files WHERE id = ?1').bind(key).first();
+      if (!meta) return fail(404, 'Файл не найден');
+      const { results } = await env.DB.prepare('SELECT data FROM file_chunks WHERE id = ?1 ORDER BY n').bind(key).all();
+      const out = new Uint8Array(meta.size); let off = 0;
+      for (const row of results) { const part = fromB64(row.data); out.set(part, off); off += part.length; }
+      return new Response(out, { headers: { 'content-type': meta.type, 'content-disposition': 'attachment', 'x-content-type-options': 'nosniff', 'cache-control': 'no-store' } });
     }
   }
   return fail(404, 'Не найдено');

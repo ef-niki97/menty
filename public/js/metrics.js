@@ -1,11 +1,9 @@
 import { SKILLS } from './config.js';
 
 // Среднее считаем только по оценённым навыкам (0 = «ещё не оценено»).
-// Оценка навыка в пятибалльной шкале: 7 из 10 → 3,5; навыки AI уже из 5.
-export const nv = (s, v) => (v ? (v * 5) / s.max : 0);
 const avg = (xs) => { const r = xs.filter((x) => x > 0); return r.length ? r.reduce((a, b) => a + b, 0) / r.length : 0; };
-export const groupAvg = (scores, g) => avg(SKILLS.filter((s) => s.g === g).map((s) => nv(s, scores?.[s.id] || 0)));
-export const total = (scores) => avg(SKILLS.map((s) => nv(s, scores?.[s.id] || 0)));
+export const groupAvg = (scores, g) => avg(SKILLS.filter((s) => s.g === g).map((s) => scores?.[s.id] || 0));
+export const total = (scores) => avg(SKILLS.map((s) => scores?.[s.id] || 0));
 export const latest = (st) => st.assessments[st.assessments.length - 1];
 export const selfLatest = (st) => st.selfAssessments?.[st.selfAssessments.length - 1] || null;
 // Среднее двух оценок по каждому навыку; если навык оценил только один — берём его оценку.

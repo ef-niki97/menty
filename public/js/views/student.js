@@ -1,5 +1,5 @@
 import * as store from '../store.js';
-import { GRADES, STATUSES, CURRENCIES, HORIZONS, GROUPS, SKILLS, levelLabel } from '../config.js';
+import { GRADES, STATUSES, CURRENCIES, HORIZONS, GROUPS, SKILLS, LEVELS } from '../config.js';
 import { esc, icon, avatar, fileToAvatar, fullName, workLine, fmtDate, fmtMoney, fmtSize, today, safeUrl, host, toast, openModal, downloadBlob, ACT } from '../ui.js';
 import { radar, radarLegend, scoreOrb } from '../radar.js';
 import { skillsEditorHtml, bindSkillsEditor } from '../skills-editor.js';
@@ -20,7 +20,7 @@ function skillRows(now, base) {
   return GROUPS.map((g) => `<div class="sr-grp"><div class="sr-h"><span class="i" style="color:${g.color}">${g.icon}</span>${g.label}</div>
     ${SKILLS.filter((s) => s.g === g.id).map((s) => {
       const v = now.scores[s.id] || 0, b = base ? base.scores[s.id] || 0 : null;
-      return `<div class="sr"><span class="sr-n">${esc(s.label)}</span><div class="bar sr-bar"><i style="width:${(v / s.max) * 100}%;background:${g.color}"></i>${b ? `<u class="tick" style="left:${(b / s.max) * 100}%" title="Было: ${levelLabel(s, b)}"></u>` : ''}</div><span class="sr-l">${levelLabel(s, v)}</span>${b === null ? '<span></span>' : dChip(v - b) || '<span></span>'}</div>`;
+      return `<div class="sr"><span class="sr-n">${esc(s.label)}</span><div class="bar sr-bar"><i style="width:${(v / 5) * 100}%;background:${g.color}"></i>${b ? `<u class="tick" style="left:${(b / 5) * 100}%" title="Было: ${LEVELS[b]}"></u>` : ''}</div><span class="sr-l">${LEVELS[v]}</span>${b === null ? '<span></span>' : dChip(v - b) || '<span></span>'}</div>`;
     }).join('')}</div>`).join('');
 }
 

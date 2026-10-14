@@ -1,6 +1,6 @@
-import { SKILLS, GROUPS, levelLabel } from './config.js';
+import { SKILLS, GROUPS, LEVELS } from './config.js';
 import { esc } from './ui.js';
-import { groupAvg, total, fmt1, nv } from './metrics.js';
+import { groupAvg, total, fmt1 } from './metrics.js';
 
 // Радар по всем компетенциям. series: [{ scores, kind: 'prev' | 'now', label }]
 // Секторы подкрашены по группам навыков. «Было» — пунктир, «Стало» — заливка.
@@ -8,7 +8,7 @@ export function radar(series, { max = 5 } = {}) {
   const W = 640, H = 540, cx = W / 2, cy = H / 2 + 4, R = 160, N = SKILLS.length, step = (Math.PI * 2) / N;
   const pt = (i, v, r = R) => { const a = i * step, k = (r * v) / max; return [cx + k * Math.sin(a), cy - k * Math.cos(a)]; };
   const f = (p) => p.map((n) => n.toFixed(1)).join(',');
-  const poly = (scores) => SKILLS.map((s, i) => f(pt(i, nv(s, scores?.[s.id] || 0)))).join(' ');
+  const poly = (scores) => SKILLS.map((s, i) => f(pt(i, scores?.[s.id] || 0))).join(' ');
 
   const wedges = GROUPS.map((g) => {
     const idx = SKILLS.map((s, i) => (s.g === g.id ? i : -1)).filter((i) => i >= 0);
@@ -22,18 +22,24 @@ export function radar(series, { max = 5 } = {}) {
   const ringNums = Array.from({ length: max }, (_, k) => k + 1).map((v) => `<text x="${cx + 5}" y="${cy - (R * v) / max + 3}" font-size="9.5" fill="rgba(17,17,19,.36)">${v}</text>`).join('');
   const axes = SKILLS.map((_, i) => `<line x1="${cx}" y1="${cy}" x2="${pt(i, max)[0].toFixed(1)}" y2="${pt(i, max)[1].toFixed(1)}" stroke="rgba(17,17,19,.07)"/>`).join('');
 
+  // Подписи по бокам могут слипаться, когда навыков много: разводим соседей по вертикали минимум на 15.
+  const pos = SKILLS.map((_, i) => pt(i, max, R + 18));
+  for (const side of [(d) => d < -8, (d) => d > 8]) {
+    const grp = pos.filter((p) => side(p[0] - cx)).sort((a, b) => a[1] - b[1]);
+    for (let k = 1; k < grp.length; k++) if (grp[k][1] - grp[k - 1][1] < 15) grp[k][1] = grp[k - 1][1] + 15;
+  }
   const labels = SKILLS.map((s, i) => {
-    const [x, y] = pt(i, max, R + 18); const dx = x - cx;
+    const [x, y] = pos[i]; const dx = x - cx;
     const anchor = dx > 8 ? 'start' : dx < -8 ? 'end' : 'middle';
     const g = GROUPS.find((q) => q.id === s.g);
     const tx = anchor === 'start' ? x + 9 : anchor === 'end' ? x - 9 : x;
-    return `<g><circle cx="${x}" cy="${y}" r="3.5" fill="${g.color}"/><text x="${tx}" y="${y + (anchor === 'middle' ? (y < cy ? -9 : 17) : 4.5)}" text-anchor="${anchor}" font-size="13.5" font-weight="600" fill="rgba(17,17,19,.78)" letter-spacing="-.01em">${esc(s.short)}</text></g>`;
+    return `<g><circle cx="${x}" cy="${y}" r="3.5" fill="${g.color}"/><text x="${tx}" y="${y + (anchor === 'middle' ? (y < cy ? -9 : 17) : 4.5)}" text-anchor="${anchor}" font-size="${N > 20 ? 12 : 13.5}" font-weight="600" fill="rgba(17,17,19,.78)" letter-spacing="-.01em">${esc(s.short)}</text></g>`;
   }).join('');
 
   const order = [...series].sort((a) => (a.kind === 'prev' ? -1 : 1));
   const layers = order.map((s) => {
     const isNow = s.kind !== 'prev';
-    const dots = isNow ? SKILLS.map((k, i) => { const v = s.scores?.[k.id] || 0; const [x, y] = pt(i, nv(k, v)); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="#fff" stroke="var(--ink)" stroke-width="2.2"><title>${esc(k.label)}: ${levelLabel(k, v)}${k.max === 5 ? ` (${v}/5)` : ` из ${k.max}`}</title></circle>`; }).join('') : '';
+    const dots = isNow ? SKILLS.map((k, i) => { const v = s.scores?.[k.id] || 0; const [x, y] = pt(i, v); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="#fff" stroke="var(--ink)" stroke-width="2.2"><title>${esc(k.label)}: ${LEVELS[v]} (${v}/${max})</title></circle>`; }).join('') : '';
     return isNow
       ? `<polygon class="r-now" points="${poly(s.scores)}" fill="rgba(17,17,19,.13)" stroke="var(--ink)" stroke-width="2.6" stroke-linejoin="round"/>${dots}`
       : `<polygon points="${poly(s.scores)}" fill="rgba(17,17,19,.03)" stroke="rgba(17,17,19,.45)" stroke-width="2.2" stroke-dasharray="7 6" stroke-linejoin="round"/>`;

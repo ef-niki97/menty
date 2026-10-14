@@ -65,7 +65,7 @@ export async function addStudent(d) {
     jobless: !!d.jobless, company: d.jobless ? '' : d.company?.trim() || '', role: d.jobless ? '' : d.role?.trim() || '',
     goal: { position: d.targetRole?.trim() || '', company: d.targetCompany?.trim() || '', salary: d.salary ? Number(d.salary) : null, currency: d.currency || '₽', horizon: d.horizon || '' },
     portfolios: [], cvs: [], sessions: [], tasks: [],
-    assessments: [{ id: uid(), v: 2, date: t, scores: { ...d.scores }, comment: 'Первичная оценка' }],
+    assessments: [{ id: uid(), date: t, scores: { ...d.scores }, comment: 'Первичная оценка' }],
     privateNote: d.privateNote?.trim() || '',
   };
   if (d.portfolio) s.portfolios.push({ id: uid(), url: d.portfolio, title: 'Портфолио', note: '', addedAt: t });
@@ -74,7 +74,7 @@ export async function addStudent(d) {
   cache.push(s); return s;
 }
 export const updateStudent = (id, patch) => mutate(id, (s) => Object.assign(s, patch));
-export const addAssessment = (id, scores, comment) => mutate(id, (s) => s.assessments.push({ id: uid(), v: 2, date: now(), scores: { ...scores }, comment: comment?.trim() || '' }));
+export const addAssessment = (id, scores, comment) => mutate(id, (s) => s.assessments.push({ id: uid(), date: now(), scores: { ...scores }, comment: comment?.trim() || '' }));
 // Портфолио и CV не удаляются — только добавляются новые версии, чтобы сохранялась история.
 export const addPortfolio = (id, p) => mutate(id, (s) => s.portfolios.push({ id: uid(), url: p.url, title: p.title?.trim() || 'Портфолио', note: p.note?.trim() || '', addedAt: now() }));
 export async function addCv(id, file) {

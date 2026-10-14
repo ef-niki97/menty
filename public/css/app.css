@@ -370,3 +370,13 @@ span.tk{cursor:default}span.tk:hover{border-color:var(--black-20)}.task.done spa
 .rv-form{max-width:620px;margin:0 auto}
 .star-pick{display:flex;gap:6px;margin:6px 0 4px}.star-pick button{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;color:var(--black-20);transition:all var(--dur-1)}
 .star-pick button .i{font-size:34px}.star-pick button.on{color:var(--ink)}.star-pick button:hover{background:var(--black-4)}
+
+/* страница «Спасибо за отзыв» */
+.ty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;padding:72px 0 40px}
+.ty .lede{margin:0 0 14px}
+.ty-heart{display:grid;place-items:center;color:var(--ink);animation:ty-pop .7s var(--ease) both,ty-beat 1.6s ease-in-out .8s infinite}
+.ty-heart .i{font-size:112px}
+@keyframes ty-pop{0%{transform:scale(.1);opacity:0}55%{transform:scale(1.2);opacity:1}100%{transform:scale(1)}}
+@keyframes ty-beat{0%,100%{transform:scale(1)}12%{transform:scale(1.1)}24%{transform:scale(1)}36%{transform:scale(1.06)}48%{transform:scale(1)}}
+.fx{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:90}
+@media (prefers-reduced-motion:reduce){.ty-heart{animation:none}}

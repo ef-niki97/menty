@@ -34,7 +34,7 @@ export function shareAssessView({ token }) {
   return {
     shell: 'bare',
     html: `<div class="share view"><header class="share-top">${logo(26)}<span class="chip">${icon('edit_note')} Самооценка</span></header>
-      <main class="page" id="sa-main" style="padding-top:28px"><div class="empty">Загрузка…</div></main></div>`,
+      <main class="page" id="sa-main" style="padding-top:28px;padding-bottom:120px"><div class="empty">Загрузка…</div></main></div>`,
     async mount(root) {
       const main = root.querySelector('#sa-main');
       let s; try { s = await api('GET', `/share/${encodeURIComponent(token)}`); } catch (e) { main.innerHTML = bad(e); return; }
@@ -43,11 +43,12 @@ export function shareAssessView({ token }) {
         <div class="eyebrow" style="margin-top:20px">Самооценка</div><h1 class="d-m">Оцените свои компетенции</h1>
         <p class="lede" style="margin:8px 0 28px">${esc(s.firstName)}, отметьте, как вы сами оцениваете каждый навык: от «начального» до «эксперта». Нажмите на выбранное значение ещё раз, чтобы сбросить. Ментор увидит ваши ответы рядом со своей оценкой.</p>
         <div class="skills-wrap"><div class="skills-col" id="sa-skills">${skillsEditorHtml(scores)}
-          <div class="row spread" style="margin-top:8px"><a class="pill ghost" href="/s/${esc(token)}">Отмена</a><button class="pill dark lg" id="sa-send">${icon('send')} Отправить оценку</button></div></div>
+          </div>
           <aside class="skills-side"><div class="card"><div id="sa-radar"></div><div id="sa-tiles"></div></div></aside></div>`;
+      root.insertAdjacentHTML('beforeend', /* вне .view: анимация появления создаёт свой контекст для fixed */ `<div class="stage-foot flat"><div class="in"><a class="pill ghost" href="/s/${esc(token)}">Отмена</a><button class="pill dark lg" id="sa-send">Отправить оценку</button></div></div>`);
       const draw = () => { main.querySelector('#sa-radar').innerHTML = radar([{ scores, kind: 'now' }]) + radarLegend(false, '', 'Ваша оценка'); main.querySelector('#sa-tiles').innerHTML = scoreOrb(scores); };
       draw(); bindSkillsEditor(main.querySelector('#sa-skills'), scores, draw);
-      main.querySelector('#sa-send').addEventListener('click', async (e) => {
+      root.querySelector('#sa-send').addEventListener('click', async (e) => {
         const rated = SKILLS.filter((k) => scores[k.id] > 0).length;
         if (!rated) { toast('Оцените хотя бы один навык'); return; }
         if (rated < SKILLS.length && !confirm(`Оценено ${rated} из ${SKILLS.length} навыков. Отправить так?`)) return;

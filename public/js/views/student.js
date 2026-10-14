@@ -31,11 +31,12 @@ function competenciesCard(s, now, base, ro) {
   const bs = mode === 'mentor' ? base : null;
   const opts = s.assessments.filter((a) => a.id !== now.id);
   const nowLabel = mode === 'self' ? `Самооценка менти · ${fmtDate(cur.date)}` : mode === 'avg' ? 'Среднее: ментор и менти' : `${bs ? 'Стало' : 'Оценка'} · ${fmtDate(now.date)}`;
+  const seg = me ? `<div class="seg" role="group" aria-label="Чья оценка">${VIEWS.map(([v, l]) => `<button type="button" class="${mode === v ? 'on' : ''}" data-act="st-view" data-v="${v}">${l}</button>`).join('')}</div>` : '';
+  const sel = !ro && mode === 'mentor' && opts.length ? `<div class="selw">${icon('expand_more', 'trail')}<select class="field sm" id="cmp-sel" aria-label="Сравнить с"><option value="">Без сравнения</option>${opts.map((a) => `<option value="${a.id}" ${base?.id === a.id ? 'selected' : ''}>Было: ${fmtDate(a.date)}</option>`).join('')}</select></div>` : '';
+  const bar = seg || sel || me ? `<div class="cmp-bar">${seg}${sel}${me ? `<span class="small cmp-note">Менти оценил себя ${fmtDate(me.date)}</span>` : ''}</div>` : '';
   return `<div class="card" id="comp-card"><div class="card-h"><h2 class="d-s">Компетенции</h2>
-      <div class="row">${me ? `<div class="seg" role="group" aria-label="Чья оценка">${VIEWS.map(([v, l]) => `<button type="button" class="${mode === v ? 'on' : ''}" data-act="st-view" data-v="${v}">${l}</button>`).join('')}</div>` : ''}
-      ${ro || mode !== 'mentor' ? '' : `${opts.length ? `<div class="selw">${icon('expand_more', 'trail')}<select class="field sm" id="cmp-sel" aria-label="Сравнить с"><option value="">Без сравнения</option>${opts.map((a) => `<option value="${a.id}" ${base?.id === a.id ? 'selected' : ''}>Было: ${fmtDate(a.date)}</option>`).join('')}</select></div>` : ''}`}
-      ${ro ? '' : `<a class="pill dark sm" href="/student/${s.id}/assess">${icon('add_chart')} Новая оценка</a>`}</div></div>
-    ${me ? `<p class="small" style="margin:-6px 0 10px">Менти оценил себя ${fmtDate(me.date)}</p>` : ''}
+      ${ro ? '' : `<a class="pill dark sm" href="/student/${s.id}/assess">Новая оценка</a>`}</div>
+    ${bar}
     ${radar([...(bs ? [{ scores: bs.scores, kind: 'prev' }] : []), { scores: cur.scores, kind: 'now' }])}
     ${radarLegend(!!bs, bs ? `Было · ${fmtDate(bs.date)}` : '', nowLabel)}
     ${scoreOrb(cur.scores, bs?.scores, { animate: true })}
@@ -92,7 +93,7 @@ export function studentPage(s, base, ro = false) {
   return `<div class="hero"><div class="hero-l">${av}<div><h1 class="d-m">${esc(fullName(s))}</h1>
       <div class="row wrap" style="margin:10px 0 6px"><span class="chip on">${esc(s.grade)}</span><span class="chip ${st.tone}">${st.label}</span><span class="chip">${fmt1(total(now.scores))}/5 ${g === null ? '' : dChip(g)}</span></div>
       <div class="muted">${esc(workLine(s))}</div></div></div>
-      ${ro ? `<div class="row"><a class="pill dark" href="/s/${esc(token)}/assess">${icon('fact_check')} Оценить компетенции</a></div>` : `<div class="row"><button class="pill ghost" data-act="st-share">${icon('ios_share')} Поделиться</button><button class="pill ghost" data-act="st-edit">${icon('edit')} Редактировать</button></div>`}</div>
+      ${ro ? `<div class="row"><a class="pill dark" href="/s/${esc(token)}/assess">Оценить компетенции</a></div>` : `<div class="row"><button class="pill ghost" data-act="st-share">${icon('ios_share')} Поделиться</button><button class="pill ghost" data-act="st-edit">${icon('edit')} Редактировать</button></div>`}</div>
     <div class="detail"><div class="col-main">${competenciesCard(s, now, base, ro)}${historyCard(s, now, ro)}${sessionsCard(s, ro)}</div>
       <div class="col-side">${goalCard(s, ro)}${portfolioCard(s, ro)}${cvCard(s, ro)}${tasksCard(s, ro)}${ro ? '' : privateCard(s)}</div></div>`;
 }
@@ -187,13 +188,14 @@ export function assessView({ id }) {
   const prev = latest(s), scores = { ...prev.scores };
   return {
     shell: 'app', nav: 'students',
-    html: `<div class="page view" style="padding-top:36px"><a class="back" href="/student/${s.id}">${icon('arrow_back')} ${esc(fullName(s))}</a>
+    html: `<div class="page view" style="padding-top:36px;padding-bottom:120px"><a class="back" href="/student/${s.id}">${icon('arrow_back')} ${esc(fullName(s))}</a>
       <div class="eyebrow" style="margin-top:20px">Новая оценка</div><h1 class="d-m">Как изменился ${esc(s.firstName)}?</h1>
       <p class="lede" style="margin:8px 0 28px">Значения подставлены из прошлой оценки (${fmtDate(prev.date)}). Измените то, что выросло — пунктир на диаграмме покажет, как было.</p>
       <div class="skills-wrap"><div class="skills-col" id="as-skills">${skillsEditorHtml(scores, prev.scores)}
         <div class="private"><label class="lbl">Комментарий к оценке</label><textarea class="field" id="as-comment" placeholder="Что изменилось, за счёт чего, над чем работаем дальше"></textarea></div>
-        <div class="row spread" style="margin-top:8px"><a class="pill ghost" href="/student/${s.id}">Отмена</a><button class="pill dark lg" id="as-save">${icon('check')} Сохранить оценку</button></div></div>
-        <aside class="skills-side"><div class="card"><div id="as-radar"></div><div id="as-tiles"></div></div></aside></div></div>`,
+        </div>
+        <aside class="skills-side"><div class="card"><div id="as-radar"></div><div id="as-tiles"></div></div></aside></div></div>
+      <div class="stage-foot flat"><div class="in"><a class="pill ghost" href="/student/${s.id}">Отмена</a><button class="pill dark lg" id="as-save">Сохранить оценку</button></div></div>`,
     mount(root) {
       const draw = () => { root.querySelector('#as-radar').innerHTML = radar([{ scores: prev.scores, kind: 'prev' }, { scores, kind: 'now' }]) + radarLegend(true, `Было · ${fmtDate(prev.date)}`, 'Стало'); root.querySelector('#as-tiles').innerHTML = scoreOrb(scores, prev.scores); };
       draw(); bindSkillsEditor(root.querySelector('#as-skills'), scores, draw);

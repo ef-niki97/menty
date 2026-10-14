@@ -329,3 +329,11 @@ span.tk{cursor:default}span.tk:hover{border-color:var(--black-20)}.task.done spa
 /* аватар: центрируем инициалы флексом (в Safari grid-центровка уезжала), оверлей по кругу */
 .av{display:inline-flex;align-items:center;justify-content:center;text-align:center;line-height:1}
 .av-edit{display:flex}
+
+/* бейдж с приростом внутри чипа без своей плашки; панель переключателей в «Компетенциях»; нижняя панель действий оценки */
+.chip .delta,.chip .delta.up,.chip .delta.down{background:none;height:auto;padding:0 0 0 2px}
+.cmp-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;margin:-4px 0 14px}
+.cmp-bar .selw{flex:0 1 230px;min-width:170px}
+.cmp-note{margin-left:auto}
+.stage-foot.flat{padding-left:var(--gutter)}
+.stage-foot.flat .in{max-width:calc(var(--page-max) - 2 * var(--gutter))}

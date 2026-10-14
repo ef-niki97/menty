@@ -1,0 +1,184 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Menty — промо</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>html,body{margin:0;background:#111;height:100%}canvas{display:block;width:100vw;height:56.25vw;max-height:100vh;max-width:177.78vh;margin:auto}</style>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script>
+// Промо-ролик Menty (≈10 с): рисуется на canvas по времени и записывается через MediaRecorder в mp4.
+// Запуск: открыть страницу, в консоли вызвать record() — файл отправится на локальный сервер.
+const W = 1920, H = 1080, cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const TOTAL = 10.8;
+const INK = '#111113', BG = '#fbfbfd';
+const G = [{ n: 10, color: '#3558f5', tint: 'rgba(53,88,245,.08)', label: 'Хард-скиллы' }, { n: 10, color: '#f2813b', tint: 'rgba(242,129,59,.09)', label: 'Софт-скиллы' }, { n: 5, color: '#b94de0', tint: 'rgba(185,77,224,.08)', label: 'AI-скиллы' }];
+const N = 25, groupOf = (i) => (i < 10 ? 0 : i < 20 ? 1 : 2);
+const LOGO = new Path2D('M 587.01 411.549 C 614.526 410.347 642.094 411.544 669.403 415.128 C 729.559 422.891 781.384 439.927 831.899 474.115 C 953.304 556.281 970.149 699.874 998.689 833.088 L 1063.38 1132.36 C 1067.14 1149.88 1085.04 1239.57 1091.32 1247.7 C 1096.52 1249.21 1099.4 1239.09 1100.3 1235.12 C 1108.12 1200.76 1114.94 1166.17 1122.44 1131.73 C 1138.76 1058.22 1154.69 984.623 1170.24 910.945 C 1205.62 750.976 1240.05 590.796 1273.53 430.415 C 1291.08 431.522 1318.44 430.729 1336.53 430.73 L 1454.43 430.741 L 1851.23 430.909 L 1851.19 1581.53 L 1523.01 1581.29 L 1523 734.182 L 1498.72 733.94 C 1495.01 750.435 1487.11 775.604 1482.44 792.23 L 1349.01 1297.03 C 1323.36 1391.7 1298.22 1486.51 1273.59 1581.45 L 881.688 1581.77 C 871.116 1533.29 854.588 1476.35 842.088 1427.58 L 768.942 1138.21 L 708.724 896.287 C 700.577 863.708 694.159 830.95 684.938 798.537 C 676.242 764.473 654.153 727.277 614.034 727.674 C 514.594 728.66 525.088 877.039 525.023 943.325 L 525.077 1089.4 L 524.897 1581.32 C 475.531 1582.04 424.957 1581.49 375.475 1581.51 L 196.761 1581.57 L 196.829 1095.58 L 196.832 945.344 C 196.845 859.66 196.712 796.942 214.672 712.137 C 254.55 523.848 397.136 418.466 587.01 411.549 z');
+
+let seed = 7; const srand = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const eo = (x) => 1 - Math.pow(1 - x, 3), eio = (x) => (x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const back = (x) => { const s = 1.8; x -= 1; return x * x * ((s + 1) * x + s) + 1; };
+const lerp = (a, b, k) => a + (b - a) * k;
+const rnd = (i) => { const v = Math.sin(i * 12.9898 + 4.1) * 43758.5453; return v - Math.floor(v); };
+
+// оценки для демо: было / ментор / менти / среднее (шкала 0–5)
+const prev = Array.from({ length: N }, (_, i) => 1.6 + rnd(i) * 1.5);
+const mentor = prev.map((v, i) => Math.min(4.8, v + 0.7 + rnd(i + 40) * 1.1));
+const self = mentor.map((v, i) => clamp(v + (rnd(i + 80) - .35) * 1.5, 1.5, 5));
+const avg = mentor.map((v, i) => (v + self[i]) / 2);
+const mean = (a) => a.reduce((s, x) => s + x, 0) / a.length;
+const grpMean = (a, g) => mean(a.filter((_, i) => groupOf(i) === g));
+
+function txt(s, x, y, { size = 40, weight = 600, color = INK, align = 'left', alpha = 1, ls = 0, base = 'alphabetic' } = {}) {
+  ctx.save(); ctx.globalAlpha *= alpha; ctx.font = `${weight} ${size}px Inter, system-ui, sans-serif`; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = base; ctx.letterSpacing = `${ls}px`; ctx.fillText(s, x, y); ctx.restore();
+}
+function rr(x, y, w, h, r, fill, { shadow = false, stroke = null, alpha = 1 } = {}) {
+  ctx.save(); ctx.globalAlpha *= alpha;
+  if (shadow) { ctx.shadowColor = 'rgba(0,0,0,.10)'; ctx.shadowBlur = 50; ctx.shadowOffsetY = 18; }
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, r); if (fill) { ctx.fillStyle = fill; ctx.fill(); } if (stroke) { ctx.shadowColor = 'transparent'; ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.stroke(); } ctx.restore();
+}
+function heart(cx, cy, s, fill) {
+  ctx.beginPath(); ctx.moveTo(cx, cy + s * 0.95);
+  ctx.bezierCurveTo(cx - s * 1.9, cy - s * 0.1, cx - s * 0.9, cy - s * 1.35, cx, cy - s * 0.45);
+  ctx.bezierCurveTo(cx + s * 0.9, cy - s * 1.35, cx + s * 1.9, cy - s * 0.1, cx, cy + s * 0.95); ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+}
+function star(cx, cy, R, fill) {
+  ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (i * Math.PI) / 5, r = i % 2 ? R * 0.46 : R; ctx[i ? 'lineTo' : 'moveTo'](cx + r * Math.cos(a), cy + r * Math.sin(a)); } ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+}
+function logoMark(x, y, size) {
+  ctx.save(); ctx.translate(x, y); const k = size / 2048; ctx.scale(k, k);
+  ctx.beginPath(); ctx.roundRect(0, 0, 2048, 2003, 440); ctx.fillStyle = INK; ctx.fill(); ctx.fillStyle = '#fff'; ctx.fill(LOGO); ctx.restore();
+}
+
+// ---------- радар ----------
+function radar(cx, cy, R, layers, a = 1) {
+  const pt = (i, v) => { const ang = (i * Math.PI * 2) / N; return [cx + (R * v / 5) * Math.sin(ang), cy - (R * v / 5) * Math.cos(ang)]; };
+  ctx.save(); ctx.globalAlpha *= a;
+  let start = 0;
+  G.forEach((g, gi) => { // сектора групп
+    const a0 = (start - .5) * (Math.PI * 2 / N), a1 = (start + g.n - .5) * (Math.PI * 2 / N);
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, a0 - Math.PI / 2, a1 - Math.PI / 2); ctx.closePath(); ctx.fillStyle = g.tint; ctx.fill(); start += g.n;
+  });
+  for (let r = 1; r <= 5; r++) { ctx.beginPath(); for (let i = 0; i < N; i++) { const [x, y] = pt(i, r); ctx[i ? 'lineTo' : 'moveTo'](x, y); } ctx.closePath(); ctx.strokeStyle = `rgba(17,17,19,${r === 5 ? .16 : .08})`; ctx.lineWidth = 2; ctx.stroke(); }
+  for (let i = 0; i < N; i++) { const [x, y] = pt(i, 5); ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x, y); ctx.strokeStyle = 'rgba(17,17,19,.07)'; ctx.lineWidth = 2; ctx.stroke(); const [lx, ly] = [cx + (R + 26) * Math.sin(i * Math.PI * 2 / N), cy - (R + 26) * Math.cos(i * Math.PI * 2 / N)]; ctx.beginPath(); ctx.arc(lx, ly, 6, 0, 7); ctx.fillStyle = G[groupOf(i)].color; ctx.fill(); }
+  for (const L of layers) {
+    ctx.beginPath(); L.scores.forEach((v, i) => { const [x, y] = pt(i, v * L.k); ctx[i ? 'lineTo' : 'moveTo'](x, y); }); ctx.closePath();
+    if (L.dash) { ctx.setLineDash([16, 12]); ctx.fillStyle = 'rgba(17,17,19,.03)'; ctx.strokeStyle = 'rgba(17,17,19,.45)'; ctx.lineWidth = 4; } else { ctx.setLineDash([]); ctx.fillStyle = 'rgba(17,17,19,.13)'; ctx.strokeStyle = INK; ctx.lineWidth = 5; }
+    ctx.lineJoin = 'round'; ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
+    if (!L.dash) L.scores.forEach((v, i) => { const [x, y] = pt(i, v * L.k); ctx.beginPath(); ctx.arc(x, y, 7, 0, 7); ctx.fillStyle = '#fff'; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = INK; ctx.stroke(); });
+  }
+  ctx.restore();
+}
+
+// ---------- фейерверк ----------
+const parts = [], fired = new Set(); let lastT = 0;
+const COLORS = [INK, '#3558f5', '#f2813b', '#b94de0', '#13803a'];
+function burst(x, y, n) { for (let i = 0; i < n; i++) { const a = srand() * 6.283, v = 260 + srand() * 560; parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, decay: 0.55 + srand() * 0.5, size: 4 + srand() * 6, c: COLORS[(srand() * 5) | 0] }); } }
+function fx(t, dt) {
+  for (const p of parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= Math.pow(.12, dt); p.vy = p.vy * Math.pow(.12, dt) + 360 * dt; p.life -= p.decay * dt; if (p.life > 0) { ctx.globalAlpha = clamp(p.life); ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * clamp(p.life, .35, 1), 0, 7); ctx.fill(); } }
+  ctx.globalAlpha = 1;
+}
+
+// ---------- кадр ----------
+function frame(t) {
+  const dt = Math.min(.05, Math.max(0, t - lastT)); lastT = t;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+
+  // A. логотип 0–2.0
+  { const a = 1 - seg(t, 1.65, 2.0), k = back(seg(t, 0, .6)); if (a > 0) {
+    ctx.save(); ctx.globalAlpha = a; ctx.translate(0, -30 * (1 - a));
+    const w = 560, x0 = (W - w) / 2 - 20;
+    ctx.save(); ctx.translate(x0 + 80, 470); ctx.scale(k, k); logoMark(-80, -80, 160); ctx.restore();
+    txt('Menty', x0 + 190 + 40 * (1 - eo(seg(t, .35, .85))), 515, { size: 150, weight: 800, ls: -6, alpha: eo(seg(t, .35, .8)) });
+    txt('Сервис для менторов и их менти', W / 2, 640, { size: 46, weight: 500, color: 'rgba(17,17,19,.52)', align: 'center', alpha: eo(seg(t, .9, 1.4)) });
+    ctx.restore(); } }
+
+  // B+C. компетенции 1.9–6.7
+  { const a = eo(seg(t, 1.9, 2.4)) * (1 - seg(t, 6.35, 6.75)); if (a > 0) {
+    ctx.save(); ctx.globalAlpha = a; ctx.translate(0, 24 * (1 - a));
+    // левая колонка: B
+    const bA = 1 - seg(t, 4.35, 4.75), cA = seg(t, 4.7, 5.1);
+    if (bA > 0) { ctx.save(); ctx.globalAlpha *= bA;
+      txt('ОЦЕНКА КОМПЕТЕНЦИЙ', 150, 300, { size: 28, weight: 700, color: 'rgba(17,17,19,.45)', ls: 4 });
+      txt('Видно, как', 150, 410, { size: 104, weight: 800, ls: -4 }); txt('растёт менти', 150, 520, { size: 104, weight: 800, ls: -4 });
+      const prog = eo(seg(t, 2.2, 3.7)); G.forEach((g, gi) => { const y = 640 + gi * 86, v = lerp(grpMean(prev, gi), grpMean(mentor, gi), prog);
+        ctx.beginPath(); ctx.arc(162, y - 10, 11, 0, 7); ctx.fillStyle = g.color; ctx.fill(); txt(g.label, 192, y, { size: 36, weight: 600, color: 'rgba(17,17,19,.6)' });
+        rr(560, y - 22, 260, 12, 6, 'rgba(17,17,19,.07)'); rr(560, y - 22, 260 * v / 5, 12, 6, g.color); txt(v.toFixed(1).replace('.', ','), 860, y, { size: 38, weight: 700 }); });
+      const tot = lerp(mean(prev), mean(mentor), prog); rr(150, 900, 380, 90, 45, 'rgba(17,17,19,.06)');
+      txt(`${tot.toFixed(1).replace('.', ',')}/5`, 190, 962, { size: 44, weight: 700 }); rr(360, 918, 150, 54, 27, 'rgba(45,181,95,.16)'); txt(`↑ ${(tot - mean(prev)).toFixed(1).replace('.', ',')}`, 435, 958, { size: 32, weight: 700, color: '#13803a', align: 'center' });
+      ctx.restore(); }
+    // левая колонка: C
+    if (cA > 0) { ctx.save(); ctx.globalAlpha *= cA; ctx.translate(0, 20 * (1 - cA));
+      txt('ДВЕ ТОЧКИ ЗРЕНИЯ', 150, 300, { size: 28, weight: 700, color: 'rgba(17,17,19,.45)', ls: 4 });
+      txt('Ментор, менти', 150, 410, { size: 104, weight: 800, ls: -4 }); txt('и среднее', 150, 520, { size: 104, weight: 800, ls: -4 });
+      const labels = ['Ментор', 'Менти', 'Среднее'], idx = t < 5.55 ? 0 : t < 6.1 ? 1 : 2, pos = lerp(idx === 0 ? 0 : idx === 1 ? 1 : 2, 0, 0);
+      const cur = t < 5.5 ? 0 : t < 5.5 + .35 ? eio(seg(t, 5.5, 5.85)) : t < 6.05 ? 1 : 1 + eio(seg(t, 6.05, 6.4));
+      rr(150, 640, 660, 92, 46, 'rgba(17,17,19,.06)'); rr(160 + cur * 214, 650, 214, 72, 36, '#fff', { shadow: true });
+      labels.forEach((l, i) => txt(l, 160 + i * 214 + 107, 698, { size: 36, weight: 700, color: Math.abs(cur - i) < .5 ? INK : 'rgba(17,17,19,.45)', align: 'center' }));
+      txt('Оценивают вместе: ваша оценка, самооценка', 150, 830, { size: 34, weight: 500, color: 'rgba(17,17,19,.52)' }); txt('менти и среднее по каждому навыку', 150, 876, { size: 34, weight: 500, color: 'rgba(17,17,19,.52)' });
+      ctx.restore(); }
+    // радар справа
+    const grow = eo(seg(t, 2.2, 3.7)), cur2 = t < 5.5 ? 0 : t < 5.85 ? eio(seg(t, 5.5, 5.85)) : t < 6.05 ? 1 : 1 + eio(seg(t, 6.05, 6.4));
+    let sc; if (cur2 <= 1) sc = mentor.map((v, i) => lerp(v, self[i], cur2)); else sc = self.map((v, i) => lerp(v, avg[i], cur2 - 1));
+    rr(1010, 130, 790, 820, 56, '#fff', { shadow: true });
+    radar(1405, 548, 270, [{ scores: prev, k: 1, dash: true }, { scores: sc, k: t < 4.7 ? grow : 1 }]);
+    ctx.restore(); } }
+
+  // D. ссылка для менти 6.6–8.5
+  { const a = eo(seg(t, 6.6, 7.0)) * (1 - seg(t, 8.15, 8.5)); if (a > 0) {
+    ctx.save(); ctx.globalAlpha = a; ctx.translate(0, 30 * (1 - a));
+    txt('ССЫЛКА ДЛЯ МЕНТИ', W / 2, 250, { size: 28, weight: 700, color: 'rgba(17,17,19,.45)', ls: 4, align: 'center' });
+    txt('Поделились — и менти', W / 2, 360, { size: 100, weight: 800, ls: -4, align: 'center' }); txt('оценил себя сам', W / 2, 468, { size: 100, weight: 800, ls: -4, align: 'center' });
+    rr(360, 560, 1200, 120, 60, '#fff', { shadow: true });
+    const url = 'menty.app/s/Xk7mP2qRtA', n = Math.floor(url.length * eo(seg(t, 6.9, 7.6)));
+    txt(url.slice(0, n) + (n < url.length && Math.floor(t * 4) % 2 ? '|' : ''), 410, 637, { size: 48, weight: 500, color: 'rgba(17,17,19,.78)' });
+    rr(1250, 578, 292, 84, 42, INK); txt('Скопировать', 1396, 632, { size: 36, weight: 700, color: '#fff', align: 'center' });
+    ['Компетенции', 'Цель', 'Портфолио', 'CV', 'Задачи'].forEach((l, i, arr) => {
+      const ws = arr.map((s) => 120 + s.length * 22), tot = ws.reduce((s, x) => s + x, 0) + 24 * (arr.length - 1); let x = (W - tot) / 2; for (let j = 0; j < i; j++) x += ws[j] + 24;
+      const k = back(seg(t, 7.35 + i * .1, 7.75 + i * .1)); ctx.save(); ctx.translate(x + ws[i] / 2, 790); ctx.scale(k, k); ctx.translate(-ws[i] / 2, 0);
+      rr(0, -44, ws[i], 88, 44, 'rgba(17,17,19,.06)'); rr(22, -16, 32, 32, 10, INK); ctx.strokeStyle = '#fff'; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(29, 0); ctx.lineTo(36, 8); ctx.lineTo(48, -8); ctx.stroke();
+      txt(l, 72, 12, { size: 34, weight: 600 }); ctx.restore(); });
+    txt('Вы выбираете, что показывать', W / 2, 930, { size: 38, weight: 500, color: 'rgba(17,17,19,.52)', align: 'center', alpha: eo(seg(t, 7.9, 8.2)) });
+    ctx.restore(); } }
+
+  // E. отзыв 8.4–10.8
+  { const a = eo(seg(t, 8.4, 8.8)); if (a > 0) {
+    ctx.save(); ctx.globalAlpha = a;
+    txt('ОТЗЫВ ПОСЛЕ ТРУДОУСТРОЙСТВА', W / 2, 230, { size: 28, weight: 700, color: 'rgba(17,17,19,.45)', ls: 4, align: 'center' });
+    for (let i = 0; i < 5; i++) { const k = back(seg(t, 8.65 + i * .12, 9.0 + i * .12)); ctx.save(); ctx.translate(W / 2 + (i - 2) * 120, 340); ctx.scale(k, k); star(0, 0, 50, 'rgba(17,17,19,.16)'); star(0, 0, 50, INK); ctx.restore(); }
+    const hk = back(seg(t, 9.25, 9.85)), beat = 1 + .05 * Math.sin(Math.max(0, t - 9.9) * 9) * seg(t, 9.9, 10);
+    ctx.save(); ctx.translate(W / 2, 600); ctx.scale(hk * beat, hk * beat); heart(0, 0, 130, INK); ctx.restore();
+    txt('Спасибо за отзыв!', W / 2, 860, { size: 92, weight: 800, ls: -3, align: 'center', alpha: eo(seg(t, 9.45, 9.9)) });
+    [[9.3, 0, 0], [9.55, -280, -90], [9.8, 280, -60]].forEach(([ts, dx, dy], i) => { if (t >= ts && !fired.has(i)) { fired.add(i); burst(W / 2 + dx, 600 + dy, 70); } });
+    const wa = eo(seg(t, 10.1, 10.5)); if (wa > 0) {
+      ctx.save(); ctx.globalAlpha *= wa; ctx.font = '800 52px Inter'; ctx.letterSpacing = '-2px'; const w1 = ctx.measureText('Menty').width; ctx.font = '500 36px Inter'; ctx.letterSpacing = '0px'; const w2 = ctx.measureText('менторство под контролем').width; ctx.restore();
+      const tot = 52 + 16 + w1 + 36 + w2, x0 = (W - tot) / 2; logoMark(x0, 930, 52); txt('Menty', x0 + 68, 972, { size: 52, weight: 800, ls: -2, alpha: wa }); txt('менторство под контролем', x0 + 68 + w1 + 36, 972, { size: 36, weight: 500, color: 'rgba(17,17,19,.52)', alpha: wa }); }
+    ctx.restore(); } }
+  fx(t, dt);
+}
+
+let t0 = 0, rec = null;
+function loop(now) { const t = (now - t0) / 1000; frame(Math.min(t, TOTAL)); if (t < TOTAL + .3) requestAnimationFrame(loop); }
+window.preview = async () => { await document.fonts.load('800 100px Inter'); await document.fonts.load('500 40px Inter'); await document.fonts.load('700 40px Inter'); parts.length = 0; fired.clear(); lastT = 0; t0 = performance.now(); requestAnimationFrame(loop); };
+window.still = async (t) => { await document.fonts.load('800 100px Inter'); await document.fonts.load('500 40px Inter'); await document.fonts.load('700 40px Inter'); parts.length = 0; fired.clear(); lastT = 0; for (let s = 0; s <= t; s += 1 / 30) frame(s); };
+// Покадровый экспорт: время кадра задаётся явно (30 к/с), поэтому длительность точная и не зависит от видимости вкладки.
+window.exportMp4 = async (name = 'menty-promo.mp4') => {
+  await Promise.all(['800 100px Inter', '500 40px Inter', '700 40px Inter'].map((f) => document.fonts.load(f)));
+  await new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.min.js'; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc); });
+  parts.length = 0; fired.clear(); lastT = 0; seed = 7;
+  const FPS = 30, frames = Math.round(TOTAL * FPS);
+  const muxer = new Mp4Muxer.Muxer({ target: new Mp4Muxer.ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H }, fastStart: 'in-memory' });
+  const enc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: (e) => { throw e; } });
+  enc.configure({ codec: 'avc1.640028', width: W, height: H, bitrate: 8e6, framerate: FPS });
+  for (let i = 0; i < frames; i++) {
+    frame(i / FPS);
+    const vf = new VideoFrame(cv, { timestamp: Math.round((i * 1e6) / FPS), duration: Math.round(1e6 / FPS) });
+    enc.encode(vf, { keyFrame: i % 60 === 0 }); vf.close();
+    if (enc.encodeQueueSize > 8) await new Promise((r) => setTimeout(r, 0));
+  }
+  await enc.flush(); muxer.finalize();
+  const blob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
+  const res = await fetch(`/save?name=${encodeURIComponent(name)}`, { method: 'POST', body: blob });
+  return { ok: res.ok, size: blob.size, frames };
+};

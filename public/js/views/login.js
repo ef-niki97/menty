@@ -22,7 +22,7 @@ export function loginView() {
           <p class="small" style="margin:6px 0 24px">Панель ментора</p>
           <div class="col" id="l-prov" style="gap:12px"><div class="small">Загрузка…</div></div>
           <div class="form-err hide" id="l-msg" role="alert">${icon('error')} <span></span></div>
-          <details class="more" id="l-pw" style="margin-top:22px"><summary>Вход по паролю (администратор) ${icon('expand_more')}</summary>
+          <details class="more hide" id="l-pw" style="margin-top:22px"><summary>Вход по паролю (администратор) ${icon('expand_more')}</summary>
             <form id="login-form" novalidate style="margin-top:14px">
               <label class="lbl" for="l-email">Почта</label>
               <input class="field" id="l-email" name="email" type="email" autocomplete="username" placeholder="you@example.com" required>
@@ -48,12 +48,12 @@ export function loginView() {
         const pv = await authProviders(), invite = q.get('invite') || '';
         const btn = (k, label, svg) => `<a class="pill ghost lg prov" href="/api/auth/${k}/start" data-prov>${svg} ${label}</a>`;
         box.innerHTML = `${pv.google ? btn('google', 'Войти через Google', G) : ''}${pv.yandex ? btn('yandex', 'Войти через Яндекс', Y) : ''}
-          ${(pv.google || pv.yandex) && pv.signup === 'invite' ? `<div><label class="lbl" for="l-invite" style="margin-top:6px">Код приглашения (для нового аккаунта)</label><input class="field sm" id="l-invite" placeholder="Если вы здесь впервые" autocomplete="off" value="${esc(invite)}"></div>` : ''}
-          ${pv.google || pv.yandex ? '' : '<div class="small">Вход через Google и Яндекс пока не подключён.</div>'}`;
-        if (!pv.google && !pv.yandex) root.querySelector('#l-pw').open = true;
+          ${(pv.google || pv.yandex) && pv.signup === 'invite' ? `<div><label class="lbl" for="l-invite" style="margin-top:6px">Код приглашения (для нового аккаунта)</label><input class="field lg" id="l-invite" placeholder="Если вы здесь впервые" autocomplete="off" value="${esc(invite)}"></div>` : ''}
+          ${pv.google || pv.yandex ? '' : '<div class="small">Вход пока не подключён.</div>'}`;
+        if (pv.password) { const d = root.querySelector('#l-pw'); d.classList.remove('hide'); if (!pv.google && !pv.yandex) d.open = true; }
         const sync = () => { const code = (root.querySelector('#l-invite')?.value || '').trim(); root.querySelectorAll('[data-prov]').forEach((a) => { a.href = a.getAttribute('href').split('?')[0] + (code ? `?invite=${encodeURIComponent(code)}` : ''); }); };
         root.querySelector('#l-invite')?.addEventListener('input', sync); sync();
-      } catch { box.innerHTML = '<div class="small">Не удалось загрузить способы входа.</div>'; root.querySelector('#l-pw').open = true; }
+      } catch { box.innerHTML = '<div class="small">Не удалось загрузить способы входа. Обновите страницу.</div>'; }
       form.addEventListener('submit', async (e) => {
         e.preventDefault(); const f = new FormData(form);
         const res = await login(f.get('email') || '', f.get('password') || '');

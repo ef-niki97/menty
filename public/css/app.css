@@ -383,3 +383,6 @@ span.tk{cursor:default}span.tk:hover{border-color:var(--black-20)}.task.done spa
 
 /* вход через провайдеров */
 .prov{display:flex;align-items:center;justify-content:center;gap:12px;width:100%}
+
+/* поле кода приглашения — по высоте и ширине как кнопка входа */
+.field.lg{height:56px;padding:0 30px;font-size:18px}

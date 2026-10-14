@@ -90,6 +90,8 @@ async function ensureAdminUser(env) {
   } else if (u.role !== 'admin') { await env.DB.prepare("UPDATE users SET role = 'admin' WHERE id = ?1").bind(u.id).run(); u.role = 'admin'; }
   return u;
 }
+// Вход по паролю выключен; включается переменной ALLOW_PASSWORD_LOGIN=1 вместе с секретом ADMIN_PASSWORD (запасной путь).
+const allowPassword = (env) => env.ALLOW_PASSWORD_LOGIN === '1' && !!env.ADMIN_PASSWORD;
 const signupMode = (env) => (['open', 'invite', 'closed'].includes(env.SIGNUP_MODE) ? env.SIGNUP_MODE : 'invite');
 const maxStudents = (env, user) => (user.role === 'admin' ? Infinity : Number(env.MAX_STUDENTS) || 100);
 const maxStorage = (env, user) => (user.role === 'admin' ? Infinity : (Number(env.QUOTA_MB) || 200) * 1024 * 1024);
@@ -268,11 +270,12 @@ async function route(req, env, url) {
   await ensureSchema(env);
 
   // ----- вход и выход -----
-  if (p === '/api/auth/providers' && m === 'GET') return json({ google: providerOn(env, 'google'), yandex: providerOn(env, 'yandex'), signup: signupMode(env) });
+  if (p === '/api/auth/providers' && m === 'GET') return json({ google: providerOn(env, 'google'), yandex: providerOn(env, 'yandex'), password: allowPassword(env), signup: signupMode(env) });
   const oa = p.match(/^\/api\/auth\/(google|yandex)\/(start|callback)$/);
   if (oa && m === 'GET') return oauth(req, env, url, oa[1], oa[2]);
 
-  if (p === '/api/login' && m === 'POST') { // запасной вход администратора по паролю
+  if (p === '/api/login' && m === 'POST') { // запасной вход администратора по паролю (по умолчанию выключен)
+    if (!allowPassword(env)) return fail(404, 'Не найдено');
     const { email, password } = await readJson(req, 4096);
     const valid = typeof email === 'string' && typeof password === 'string';
     // Обе проверки выполняем всегда, чтобы по времени ответа нельзя было понять, что неверно.
@@ -342,6 +345,7 @@ async function route(req, env, url) {
   if (p === '/api/me' && m === 'GET') return json(user);
 
   if (p === '/api/account' && m === 'DELETE') { // удаление аккаунта со всеми данными
+    if (user.role === 'admin') return fail(403, 'Аккаунт администратора удалить нельзя');
     const { confirm } = await readJson(req, 1024);
     if (typeof confirm !== 'string' || confirm.trim().toLowerCase() !== user.email) return fail(400, 'Введите свою почту для подтверждения');
     await env.DB.batch([
@@ -518,7 +522,7 @@ export default {
   async fetch(req, env) {
     const u = new URL(req.url);
     if (u.hostname === 'www.menty.work') { u.hostname = 'menty.work'; return Response.redirect(u.toString(), 308); } // единый адрес: www → без www
-    if (!env.ADMIN_PASSWORD || !env.ADMIN_EMAIL) return fail(500, 'Не заданы ADMIN_EMAIL и секрет ADMIN_PASSWORD');
+    if (!env.ADMIN_EMAIL) return fail(500, 'Не задан ADMIN_EMAIL');
     try { return await route(req, env, new URL(req.url)); }
     catch (e) { if (e instanceof Response) return e; console.error(e); return fail(500, 'Ошибка сервера'); }
   },

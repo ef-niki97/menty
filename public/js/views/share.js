@@ -9,7 +9,7 @@ import { studentPage, defaultBase } from './student.js';
 
 // Публичная страница профиля по ссылке: только просмотр, без входа, кнопок и личной заметки ментора.
 const msg = (ic, t, sub) => `<div class="empty">${icon(ic, 'ol')}<h2 class="d-s" style="justify-content:center">${t}</h2><p>${sub}</p></div>`;
-const bad = (e) => e.status === 404 ? msg('link_off', 'Ссылка недействительна', 'Возможно, доступ был отключён. Попросите ментора прислать новую ссылку.') : msg('cloud_off', 'Не удалось загрузить', 'Проверьте соединение и обновите страницу.');
+const bad = (e) => e.status === 429 ? msg('hourglass_empty', 'Слишком много запросов', 'Подождите минуту и обновите страницу.') : e.status === 404 ? msg('link_off', 'Ссылка недействительна', 'Возможно, доступ был отключён. Попросите ментора прислать новую ссылку.') : msg('cloud_off', 'Не удалось загрузить', 'Проверьте соединение и обновите страницу.');
 
 export function shareView({ token }) {
   return {
@@ -56,7 +56,7 @@ export function shareAssessView({ token }) {
         if (rated < SKILLS.length && !(await confirmDialog({ title: 'Отправить оценку?', text: `Оценено ${rated} из ${SKILLS.length} навыков. Остальные останутся без оценки.`, ok: 'Отправить', danger: false }))) return;
         btn.disabled = true;
         try { await store.submitSelf(token, scores); toast('Спасибо! Оценка отправлена ментору'); window.__go(`/s/${token}`); }
-        catch { btn.disabled = false; toast('Не удалось отправить, попробуйте ещё раз'); }
+        catch (err) { btn.disabled = false; toast(err.status === 429 ? 'Слишком много попыток, подождите минуту' : 'Не удалось отправить, попробуйте ещё раз'); }
       });
     },
   };

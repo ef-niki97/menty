@@ -13,7 +13,7 @@ export function reviewView({ token }) {
       const main = root.querySelector('#rv-main');
       let d;
       try { d = await api('GET', `/review/${encodeURIComponent(token)}`); }
-      catch (e) { main.innerHTML = e.status === 404 ? msg('link_off', 'Ссылка недействительна', 'Попросите ментора прислать новую ссылку.') : msg('cloud_off', 'Не удалось загрузить', 'Проверьте соединение и обновите страницу.'); return; }
+      catch (e) { main.innerHTML = e.status === 429 ? msg('hourglass_empty', 'Слишком много запросов', 'Подождите минуту и обновите страницу.') : e.status === 404 ? msg('link_off', 'Ссылка недействительна', 'Попросите ментора прислать новую ссылку.') : msg('cloud_off', 'Не удалось загрузить', 'Проверьте соединение и обновите страницу.'); return; }
       let rating = d.review?.rating || 0, comment = d.review?.comment || '', sent = !!d.review;
       const showForm = () => {
         main.innerHTML = `<div class="rv-form"><div class="row" style="gap:14px;margin-bottom:18px">${avatar(d, 'lg')}<div><div class="eyebrow">Отзыв о менторстве</div><h1 class="d-m">Как всё прошло?</h1></div></div>
@@ -26,9 +26,9 @@ export function reviewView({ token }) {
         main.querySelector('#rv-stars').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { rating = +b.dataset.n; paint(); } });
         main.querySelector('#rv-send').addEventListener('click', async (e) => {
           if (!rating) { toast('Поставьте оценку звёздами'); return; }
-          comment = main.querySelector('#rv-text').value; e.currentTarget.disabled = true;
+          const btn = e.currentTarget; comment = main.querySelector('#rv-text').value; btn.disabled = true;
           try { await api('POST', `/review/${encodeURIComponent(token)}`, { rating, comment }); sent = true; showThanks(); }
-          catch { e.currentTarget.disabled = false; toast('Не удалось отправить, попробуйте ещё раз'); }
+          catch (err) { btn.disabled = false; toast(err.status === 429 ? 'Слишком много попыток, подождите минуту' : 'Не удалось отправить, попробуйте ещё раз'); }
         });
       };
       const showThanks = () => {

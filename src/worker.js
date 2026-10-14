@@ -45,6 +45,14 @@ function restoreScale(d) {
   return changed;
 }
 
+// Ограничение частоты запросов (привязки ratelimits из wrangler.toml). Если привязки нет — не ограничиваем (локально и в тестах).
+// Счётчики локальны для дата-центра Cloudflare и «мягкие»: это защита от перебора и злоупотреблений, а не точный учёт.
+async function limited(env, name, key) {
+  const rl = env[name]; if (!rl) return false;
+  try { return !(await rl.limit({ key })).success; } catch { return false; }
+}
+const tooMany = () => json({ error: 'Слишком много запросов, подождите минуту' }, 429, { 'retry-after': '60' });
+
 const enc = new TextEncoder();
 const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers } });
 const fail = (status, error) => json({ error }, status);
@@ -292,7 +300,11 @@ async function oauth(req, env, url, name, step) {
 }
 
 async function route(req, env, url) {
-  const { pathname: p } = url, m = req.method;
+  const { pathname: p } = url, m = req.method, ip = req.headers.get('cf-connecting-ip') || 'unknown';
+  // вход: не больше AUTH_LIMIT попыток в минуту с одного адреса
+  if ((p.startsWith('/api/auth/') && p !== '/api/auth/providers') || p === '/api/login') {
+    if (await limited(env, 'AUTH_LIMIT', ip)) return p.startsWith('/api/auth/') ? redirect('/login?error=rate_limited') : tooMany();
+  }
   await ensureSchema(env);
 
   // ----- вход и выход -----
@@ -321,8 +333,9 @@ async function route(req, env, url) {
   const pub = p.match(/^\/api\/share\/([^/]+)$/);
   if (pub && m === 'GET') {
     if (!TOKEN_RE.test(pub[1])) return fail(404, 'Ссылка недействительна');
+    if (await limited(env, 'PUBLIC_LIMIT', ip)) return tooMany();
     const row = await env.DB.prepare('SELECT s.data, h.opts FROM shares h JOIN students s ON s.owner_id = h.owner_id AND s.id = h.student_id WHERE h.token = ?1').bind(pub[1]).first();
-    if (!row) return fail(404, 'Ссылка недействительна');
+    if (!row) return (await limited(env, 'MISS_LIMIT', ip)) ? tooMany() : fail(404, 'Ссылка недействительна'); // частые промахи по токенам — признак перебора
     return json(publicView(JSON.parse(row.data), parseOpts(row.opts)), 200, { 'x-robots-tag': 'noindex, nofollow' });
   }
 
@@ -330,8 +343,9 @@ async function route(req, env, url) {
   const rv = p.match(/^\/api\/review\/([^/]+)$/);
   if (rv && (m === 'GET' || m === 'POST')) {
     if (!TOKEN_RE.test(rv[1])) return fail(404, 'Ссылка недействительна');
+    if (await limited(env, m === 'POST' ? 'WRITE_LIMIT' : 'PUBLIC_LIMIT', ip) || (m === 'POST' && await limited(env, 'WRITE_LIMIT', `tok:${rv[1]}`))) return tooMany();
     const row = await env.DB.prepare('SELECT s.owner_id, s.data FROM review_links l JOIN students s ON s.owner_id = l.owner_id AND s.id = l.student_id WHERE l.token = ?1').bind(rv[1]).first();
-    if (!row) return fail(404, 'Ссылка недействительна');
+    if (!row) return (await limited(env, 'MISS_LIMIT', ip)) ? tooMany() : fail(404, 'Ссылка недействительна');
     const doc = JSON.parse(row.data);
     if (m === 'POST') {
       const { rating, comment } = await readJson(req, 8192);
@@ -348,6 +362,7 @@ async function route(req, env, url) {
   const self = p.match(/^\/api\/share\/([^/]+)\/self$/);
   if (self && m === 'POST') {
     if (!TOKEN_RE.test(self[1])) return fail(404, 'Ссылка недействительна');
+    if (await limited(env, 'WRITE_LIMIT', ip) || await limited(env, 'WRITE_LIMIT', `tok:${self[1]}`)) return tooMany();
     const { scores } = await readJson(req, 4096), clean = {};
     for (const k of SKILL_IDS) {
       const v = scores?.[k]; if (v === undefined) continue;
@@ -356,7 +371,7 @@ async function route(req, env, url) {
     }
     if (!Object.values(clean).some((v) => v > 0)) return fail(400, 'Оцените хотя бы один навык');
     const row = await env.DB.prepare('SELECT s.owner_id, s.data, h.opts FROM shares h JOIN students s ON s.owner_id = h.owner_id AND s.id = h.student_id WHERE h.token = ?1').bind(self[1]).first();
-    if (!row) return fail(404, 'Ссылка недействительна');
+    if (!row) return (await limited(env, 'MISS_LIMIT', ip)) ? tooMany() : fail(404, 'Ссылка недействительна');
     if (!parseOpts(row.opts).competencies) return fail(403, 'Оценка по этой ссылке отключена');
     const doc = JSON.parse(row.data);
     doc.selfAssessments = [...(Array.isArray(doc.selfAssessments) ? doc.selfAssessments : []), { id: newToken(), date: new Date().toISOString(), scores: clean }].slice(-20);
@@ -368,6 +383,7 @@ async function route(req, env, url) {
   const user = await getUser(req, env);
   if (!user) return fail(401, 'Требуется вход');
   const owner = user.id;
+  if (await limited(env, 'API_LIMIT', owner)) return tooMany(); // на аккаунт, чтобы сбойный клиент или скрипт не завалил базу
   if (p === '/api/me' && m === 'GET') return json(user);
 
   if (p === '/api/account' && m === 'DELETE') { // удаление аккаунта со всеми данными
@@ -530,6 +546,7 @@ async function route(req, env, url) {
   if (r && ID_RE.test(r[1])) {
     const key = r[1];
     if (m === 'PUT') {
+      if (await limited(env, 'UPLOAD_LIMIT', owner)) return tooMany();
       const bytes = new Uint8Array(await req.arrayBuffer());
       if (bytes.length > MAX_FILE) return fail(413, 'Файл больше 10 МБ');
       const cur = await env.DB.prepare('SELECT owner_id, size FROM files WHERE id = ?1').bind(key).first();

@@ -36,4 +36,48 @@ database_id = "7faf9afe-f324-4ba6-8de1-6a304e7e3426"
 binding = "FILES"
 bucket_name = "menty-files"
 
+# Ограничение частоты запросов (Workers Rate Limiting). Окно — 10 или 60 секунд; счётчики локальны для дата-центра.
+# namespace_id должен быть уникален в аккаунте Cloudflare.
+[[ratelimits]] # попытки входа (с одного IP)
+name = "AUTH_LIMIT"
+namespace_id = "7101"
+  [ratelimits.simple]
+  limit = 20
+  period = 60
+
+[[ratelimits]] # просмотр публичных ссылок и ссылок отзыва (с одного IP)
+name = "PUBLIC_LIMIT"
+namespace_id = "7102"
+  [ratelimits.simple]
+  limit = 60
+  period = 60
+
+[[ratelimits]] # промахи по токенам: признак перебора
+name = "MISS_LIMIT"
+namespace_id = "7103"
+  [ratelimits.simple]
+  limit = 10
+  period = 60
+
+[[ratelimits]] # запись по публичным ссылкам: самооценка и отзыв (на IP и на токен)
+name = "WRITE_LIMIT"
+namespace_id = "7104"
+  [ratelimits.simple]
+  limit = 10
+  period = 60
+
+[[ratelimits]] # любые запросы авторизованного ментора (на аккаунт)
+name = "API_LIMIT"
+namespace_id = "7105"
+  [ratelimits.simple]
+  limit = 600
+  period = 60
+
+[[ratelimits]] # загрузка файлов (на аккаунт)
+name = "UPLOAD_LIMIT"
+namespace_id = "7106"
+  [ratelimits.simple]
+  limit = 20
+  period = 60
+
 # Секреты (в панели, не в этом файле): ADMIN_PASSWORD, GOOGLE_CLIENT_ID/SECRET, YANDEX_CLIENT_ID/SECRET — см. README.

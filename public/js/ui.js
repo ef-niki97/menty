@@ -8,6 +8,7 @@ export const fmtDate = (iso) => new Date(iso).toLocaleDateString('ru-RU', { day:
 export const fmtMoney = (n, cur) => n ? `${Number(n).toLocaleString('ru-RU')} ${cur}` : '—';
 export const fmtSize = (b) => b > 1048576 ? `${(b / 1048576).toFixed(1)} МБ` : `${Math.max(1, Math.round(b / 1024))} КБ`;
 export const today = () => new Date().toISOString().slice(0, 10);
+export const workLine = (s) => [s.role, s.jobless ? 'В поисках работы' : s.company].filter(Boolean).join(' · ') || 'Место работы не указано';
 export const fullName = (s) => `${s.firstName} ${s.lastName}`.trim();
 
 // Принимает только http(s)-ссылки, чтобы нельзя было подсунуть javascript:

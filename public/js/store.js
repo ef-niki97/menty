@@ -31,7 +31,7 @@ export async function addStudent(d) {
     id: uid(), createdAt: t, updatedAt: t,
     firstName: d.firstName.trim(), lastName: d.lastName.trim(),
     grade: d.grade, status: d.status || 'active', avatar: d.avatar || '',
-    company: d.company?.trim() || '', role: d.role?.trim() || '',
+    jobless: !!d.jobless, company: d.jobless ? '' : d.company?.trim() || '', role: d.role?.trim() || '',
     goal: { position: d.targetRole?.trim() || '', company: d.targetCompany?.trim() || '', salary: d.salary ? Number(d.salary) : null, currency: d.currency || '₽', horizon: d.horizon || '' },
     portfolios: [], cvs: [], sessions: [], tasks: [],
     assessments: [{ id: uid(), date: t, scores: { ...d.scores }, comment: 'Первичная оценка' }],

@@ -1,18 +1,18 @@
 import { addStudent } from '../store.js';
 import { GRADES, CURRENCIES, HORIZONS } from '../config.js';
-import { esc, icon, avatar, safeUrl, fmtSize, toast, ACT, fileToAvatar } from '../ui.js';
+import { esc, icon, avatar, workLine, safeUrl, fmtSize, toast, ACT, fileToAvatar } from '../ui.js';
 import { radar, radarLegend, scoreOrb } from '../radar.js';
 import { skillsEditorHtml, bindSkillsEditor } from '../skills-editor.js';
 import { total, fmt1 } from '../metrics.js';
 
 const STEPS = ['Ученик', 'Цели', 'Компетенции', 'Итог'];
 const MAX_FILE = 10 * 1024 * 1024;
-const blank = () => ({ avatar: '', firstName: '', lastName: '', grade: 'Junior', status: 'active', company: '', role: '', portfolio: '', cv: null, targetRole: '', targetCompany: '', salary: '', currency: '₽', horizon: '', scores: {}, privateNote: '' });
+const blank = () => ({ avatar: '', firstName: '', lastName: '', grade: 'Junior', status: 'active', jobless: false, company: '', role: '', portfolio: '', cv: null, targetRole: '', targetCompany: '', salary: '', currency: '₽', horizon: '', scores: {}, privateNote: '' });
 
 let draft = blank(), step = 1, saving = false;
 const nameOk = () => draft.firstName.trim() && draft.lastName.trim();
 
-const input = (label, f, { ph = '', type = 'text', hint = '' } = {}) => `<div><label class="lbl">${label}</label><input class="field" data-f="${f}" type="${type}" placeholder="${esc(ph)}" value="${esc(draft[f])}" autocomplete="off">${hint ? `<div class="small hint">${hint}</div>` : ''}</div>`;
+const input = (label, f, { ph = '', type = 'text', hint = '', off = false } = {}) => `<div><label class="lbl">${label}</label><input class="field" ${off ? 'disabled' : ''} data-f="${f}" type="${type}" placeholder="${esc(ph)}" value="${esc(draft[f])}" autocomplete="off">${hint ? `<div class="small hint">${hint}</div>` : ''}</div>`;
 
 function stepProfile() {
   const demoAv = avatar({ firstName: draft.firstName || '?', lastName: draft.lastName || '', avatar: draft.avatar }, 'xl');
@@ -20,7 +20,7 @@ function stepProfile() {
     <div class="profile-top">${demoAv}<div class="col" style="gap:8px"><div class="row wrap"><label class="pill ghost sm" for="w-av" style="cursor:pointer">${icon('photo_camera')} ${draft.avatar ? 'Заменить фото' : 'Загрузить фото'}</label>${draft.avatar ? `<button type="button" class="pill ghost sm" data-act="w-av-clear">Убрать</button>` : ''}</div><div class="small">JPG, PNG или WebP. Фото обрежется по центру в квадрат.</div></div><input id="w-av" type="file" accept="image/*" hidden></div>
     <div class="grid g2">${input('Имя *', 'firstName', { ph: 'Анна' })}${input('Фамилия *', 'lastName', { ph: 'Соколова' })}</div>
     <div><label class="lbl">Грейд</label><div class="seg wrap" id="w-grade">${GRADES.map((g) => `<button type="button" class="${draft.grade === g ? 'on' : ''}" data-g="${esc(g)}">${esc(g)}</button>`).join('')}</div></div>
-    <div class="grid g2">${input('Текущее место работы', 'company', { ph: 'Компания или «Фриланс»' })}${input('Должность', 'role', { ph: 'Junior-дизайнер' })}</div>
+    <div class="grid g2"><div>${input('Текущее место работы', 'company', { ph: 'Компания или «Фриланс»', off: draft.jobless })}<label class="chk"><input type="checkbox" id="w-jobless" ${draft.jobless ? 'checked' : ''}><span>Сейчас без работы</span></label></div>${input('Должность', 'role', { ph: 'Junior-дизайнер' })}</div>
     ${input('Портфолио', 'portfolio', { ph: 'behance.net/…, сайт или другая ссылка', hint: 'Следующие версии портфолио можно будет добавлять в профиле — история сохранится.' })}
     <div><label class="lbl">CV</label>
       <label class="drop ${draft.cv ? 'has' : ''}" id="w-drop" for="w-cv">${draft.cv ? `${icon('description')}<div class="grow"><b class="ell">${esc(draft.cv.name)}</b><div class="small">${fmtSize(draft.cv.size)}</div></div><button type="button" class="chip" data-act="w-cv-clear">${icon('close')} Убрать</button>` : `${icon('upload_file', 'ol')}<div><b>Загрузить CV</b><div class="small">PDF, DOC или DOCX до 10 МБ — нажмите или перетащите файл</div></div>`}</label>
@@ -40,7 +40,7 @@ function stepSummary() {
   const kv = (k, v) => `<div class="kv"><span>${k}</span><b>${v ? esc(v) : '<span class="muted">—</span>'}</b></div>`;
   return `<div class="eyebrow">Шаг 4 из 4</div><h1 class="d-m">Всё готово к созданию</h1><p class="lede" style="margin-top:-8px">Это стартовая точка. При следующих оценках диаграмма покажет «было / стало».</p>
     <div class="sum-grid"><div class="card"><div class="sum-av">${avatar(draft, 'lg')}<div><div class="d-s">${esc(draft.firstName)} ${esc(draft.lastName)}</div><span class="chip on">${esc(draft.grade)}</span></div></div>
-      ${kv('Работает', [draft.role, draft.company].filter(Boolean).join(' · '))}${kv('Портфолио', url || draft.portfolio)}${kv('CV', draft.cv?.name)}
+      ${kv('Работает', workLine({ role: draft.role, company: draft.company, jobless: draft.jobless }) === 'Место работы не указано' ? '' : workLine(draft))}${kv('Портфолио', url || draft.portfolio)}${kv('CV', draft.cv?.name)}
       <div class="divider"></div>${kv('Цель', draft.targetRole)}${kv('Компания', draft.targetCompany)}${kv('Зарплата', draft.salary ? `${Number(draft.salary).toLocaleString('ru-RU')} ${draft.currency}` : '')}${kv('Срок', HORIZONS.find(([v]) => v === draft.horizon)?.[1] !== 'Не указан' ? HORIZONS.find(([v]) => v === draft.horizon)?.[1] : '')}
       ${draft.privateNote ? `<div class="divider"></div><div class="kv"><span>${icon('lock')} Личная заметка</span><b class="note">${esc(draft.privateNote)}</b></div>` : ''}</div>
       <div class="card">${radar([{ scores: draft.scores, kind: 'now' }])}${radarLegend(false, '', 'Стартовая оценка')}${scoreOrb(draft.scores, null, { animate: true })}</div></div>`;
@@ -74,6 +74,7 @@ export function wizardView() {
 
       main.addEventListener('input', (e) => { const f = e.target.dataset.f; if (!f) return; draft[f] = e.target.value; if (f === 'firstName' || f === 'lastName') syncFoot(); });
       main.addEventListener('change', async (e) => {
+        if (e.target.id === 'w-jobless') { draft.jobless = e.target.checked; if (draft.jobless) draft.company = ''; const c = main.querySelector('[data-f=company]'); c.disabled = draft.jobless; c.value = draft.company; }
         if (e.target.id === 'w-cv') setCv(e.target.files[0]);
         if (e.target.id === 'w-av') { const f = e.target.files[0]; if (!f) return; try { draft.avatar = await fileToAvatar(f); paint(); } catch { toast('Не удалось прочитать изображение'); } }
       });

@@ -1,6 +1,6 @@
 import * as store from '../store.js';
 import { GRADES, STATUSES, CURRENCIES, HORIZONS, GROUPS, SKILLS, LEVELS } from '../config.js';
-import { esc, icon, avatar, fileToAvatar, fullName, fmtDate, fmtMoney, fmtSize, today, safeUrl, host, toast, openModal, downloadBlob, ACT } from '../ui.js';
+import { esc, icon, avatar, fileToAvatar, fullName, workLine, fmtDate, fmtMoney, fmtSize, today, safeUrl, host, toast, openModal, downloadBlob, ACT } from '../ui.js';
 import { radar, radarLegend, scoreOrb } from '../radar.js';
 import { skillsEditorHtml, bindSkillsEditor } from '../skills-editor.js';
 import { datePicker } from '../datepicker.js';
@@ -81,7 +81,7 @@ export function studentPage(s, base, ro = false) {
   const av = ro ? avatar(s, 'xl') : `<label class="av-edit" for="av-up" title="Сменить фото">${avatar(s, 'xl')}<span class="av-cam">${icon('photo_camera')}</span></label><input id="av-up" type="file" accept="image/*" hidden>`;
   return `<div class="hero"><div class="hero-l">${av}<div><h1 class="d-m">${esc(fullName(s))}</h1>
       <div class="row wrap" style="margin:10px 0 6px"><span class="chip on">${esc(s.grade)}</span><span class="chip ${st.tone}">${st.label}</span><span class="chip">${fmt1(total(now.scores))}/5 ${g === null ? '' : dChip(g)}</span></div>
-      <div class="muted">${esc([s.role, s.company].filter(Boolean).join(' · ') || 'Место работы не указано')}</div></div></div>
+      <div class="muted">${esc(workLine(s))}</div></div></div>
       ${ro ? '' : `<div class="row"><button class="pill ghost" data-act="st-share">${icon('ios_share')} Поделиться</button><button class="pill ghost" data-act="st-edit">${icon('edit')} Редактировать</button></div>`}</div>
     <div class="detail"><div class="col-main">${competenciesCard(s, now, base, ro)}${historyCard(s, now, ro)}${sessionsCard(s, ro)}</div>
       <div class="col-side">${goalCard(s, ro)}${portfolioCard(s, ro)}${cvCard(s, ro)}${tasksCard(s, ro)}${ro ? '' : privateCard(s)}</div></div>`;
@@ -144,7 +144,7 @@ ACT['st-edit'] = (el) => {
     ${s.avatar ? `<div class="row">${avatar(s, 'lg')}<button type="button" class="pill ghost sm" id="ed-av-del">Убрать фото</button></div>` : ''}
     <div class="grid g2">${f('Имя', 'firstName', s.firstName)}${f('Фамилия', 'lastName', s.lastName)}</div>
     <div class="grid g2">${sel('Грейд', 'grade', GRADES.map((x) => [x, x]), s.grade)}${sel('Статус', 'status', Object.entries(STATUSES).map(([k, v]) => [k, v.label]), s.status)}</div>
-    <div class="grid g2">${f('Компания', 'company', s.company)}${f('Должность', 'role', s.role)}</div>
+    <div class="grid g2"><div>${f('Компания', 'company', s.company).replace('<input', `<input ${s.jobless ? 'disabled' : ''}`)}<label class="chk"><input type="checkbox" name="jobless" ${s.jobless ? 'checked' : ''}><span>Сейчас без работы</span></label></div>${f('Должность', 'role', s.role)}</div>
     <div class="divider" style="margin:4px 0"></div>
     ${f('Целевая должность', 'targetRole', g.position)}${f('Целевая компания или направление', 'targetCompany', g.company)}
     <div class="grid g3">${f('Ожидаемая зарплата', 'salary', g.salary ?? '', '150000', 'number')}${sel('Валюта', 'currency', CURRENCIES.map((x) => [x, x]), g.currency)}${sel('Срок', 'horizon', HORIZONS, g.horizon)}</div>
@@ -153,10 +153,11 @@ ACT['st-edit'] = (el) => {
     m.querySelector('#ed-form').addEventListener('submit', (e) => {
       e.preventDefault(); const d = Object.fromEntries(new FormData(e.target));
       if (!d.firstName.trim() || !d.lastName.trim()) { toast('Имя и фамилия обязательны'); return; }
-      store.updateStudent(id, { firstName: d.firstName.trim(), lastName: d.lastName.trim(), grade: d.grade, status: d.status, company: d.company.trim(), role: d.role.trim(),
+      store.updateStudent(id, { firstName: d.firstName.trim(), lastName: d.lastName.trim(), grade: d.grade, status: d.status, jobless: !!d.jobless, company: d.jobless ? '' : d.company.trim(), role: d.role.trim(),
         goal: { position: d.targetRole.trim(), company: d.targetCompany.trim(), salary: d.salary ? Number(d.salary) : null, currency: d.currency, horizon: d.horizon } });
       close(); toast('Сохранено'); rerender();
     });
+    m.querySelector('[name=jobless]').addEventListener('change', (e) => { const c = m.querySelector('[name=company]'); c.disabled = e.target.checked; if (e.target.checked) c.value = ''; });
     m.querySelector('#ed-av-del')?.addEventListener('click', () => { store.updateStudent(id, { avatar: '' }); close(); toast('Фото убрано'); rerender(); });
     m.querySelector('#ed-del').addEventListener('click', async () => {
       if (!confirm(`Удалить ${fullName(s)} вместе с историей оценок и файлами? Это нельзя отменить.`)) return;
@@ -193,7 +194,7 @@ export function assessView({ id }) {
 
 // ---------- публичная ссылка ----------
 ACT['st-share'] = (el) => {
-  const id = sid(el), url = (t) => `${location.origin}${location.pathname}#/share/${t}`;
+  const id = sid(el), url = (t) => `${location.origin}${location.pathname}#/s/${t}`;
   openModal(`<h2 class="d-s">Поделиться профилем</h2>
     <p class="small" style="margin:6px 0 20px">Ссылка открывает профиль только для просмотра: без кнопок, без входа и без вашей личной заметки. Данные всегда актуальные.</p>
     <div id="sh-body"><div class="small">Загрузка…</div></div>

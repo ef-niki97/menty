@@ -318,3 +318,9 @@ select.field.sm{padding-right:42px}
 .share-top{max-width:var(--page-max);margin:0 auto;padding:20px var(--gutter) 0;display:flex;align-items:center;justify-content:space-between}
 .share .chip .i{font-size:16px}
 span.tk{cursor:default}span.tk:hover{border-color:var(--black-20)}.task.done span.tk:hover{border-color:var(--ink)}
+
+/* чекбокс «Сейчас без работы» и корректный оверлей на аватаре */
+.chk{display:flex;align-items:center;gap:8px;margin-top:10px;font:500 14px var(--font);color:var(--black-64,inherit);cursor:pointer}
+.chk input{width:18px;height:18px;margin:0;accent-color:var(--ink);cursor:pointer}
+.field:disabled{opacity:.5;cursor:not-allowed}
+.av-edit{display:flex}

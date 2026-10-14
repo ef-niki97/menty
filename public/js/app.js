@@ -15,6 +15,7 @@ const routes = [
   ['student/:id', studentView, true],
   ['student/:id/assess', assessView, true],
   ['share/:token', shareView, false],
+  ['s/:token', shareView, false],
 ];
 function match(path) {
   for (const [pat, fn, auth] of routes) {
@@ -32,8 +33,7 @@ function nav(active) {
   const u = currentUser();
   return `<header class="nav"><div class="nav-in"><a href="#/students" aria-label="Menty">${logo(28)}</a>
     <nav class="nav-links"><a href="#/students" class="${active === 'students' ? 'on' : ''}">Ученики</a></nav>
-    <div class="nav-right"><a class="pill dark sm" href="#/students/new">${icon('add')} Ученик</a>
-      <button class="avatar-btn" data-act="menu-toggle" aria-label="Меню профиля">${esc(u.name[0])}</button></div>
+    <div class="nav-right"><button class="avatar-btn" data-act="menu-toggle" aria-label="Меню профиля">${esc(u.name[0])}</button></div>
     <div class="umenu" id="umenu"><div class="um-name">${esc(u.name)}</div><div class="small" style="margin-bottom:8px">${esc(u.email)}</div><div class="um-sep"></div>
       <button class="um-i" data-act="backup">${icon('download')} Скачать резервную копию</button>
       <label class="um-i" for="restore-in">${icon('upload')} Восстановить из копии</label><input id="restore-in" type="file" accept="application/json,.json" hidden>
@@ -58,7 +58,7 @@ function route(keep) {
 window.__rerender = () => route(true);
 window.addEventListener('hashchange', () => route(false));
 window.addEventListener('menty:error', (e) => toast(e.detail));
-window.addEventListener('menty:unauth', () => { forgetUser(); resetStore(); if (location.hash !== '#/login' && !location.hash.startsWith('#/share/')) location.hash = '#/login'; });
+window.addEventListener('menty:unauth', () => { forgetUser(); resetStore(); if (location.hash !== '#/login' && !/^#\/s(hare)?\//.test(location.hash)) location.hash = '#/login'; });
 
 document.addEventListener('click', (e) => {
   const a = e.target.closest('[data-act]');

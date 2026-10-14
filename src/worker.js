@@ -7,7 +7,7 @@ const MAX_DOC = 1024 * 1024;
 const SESSION_DAYS = 30;
 const COOKIE = 'menty_session';
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
-const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
+const TOKEN_RE = /^[A-Za-z0-9_-]{10,43}$/; // новые ссылки — 10 символов, старые — 43
 
 const enc = new TextEncoder();
 const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers } });
@@ -15,7 +15,8 @@ const fail = (status, error) => json({ error }, status);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const toB64 = (bytes) => { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(s); };
-const newToken = () => b64u(crypto.getRandomValues(new Uint8Array(32))); // 256 бит, 43 символа
+const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+const newToken = () => { let t = ''; while (t.length < 10) for (const b of crypto.getRandomValues(new Uint8Array(16))) if (b < 228 && t.length < 10) t += ALPHABET[b % 57]; return t; }; // 10 символов ≈ 58 бит, без неоднозначных символов
 const fromB64 = (t) => Uint8Array.from(atob(t), (c) => c.charCodeAt(0));
 
 const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');

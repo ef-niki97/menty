@@ -1,6 +1,6 @@
 import { students, seed } from '../store.js';
 import { GRADES, STATUSES } from '../config.js';
-import { esc, icon, avatar, fullName, fmtDate, ACT, toast } from '../ui.js';
+import { esc, icon, avatar, fullName, workLine, fmtDate, ACT, toast } from '../ui.js';
 import { total, growth, latest, fmt1, signed } from '../metrics.js';
 import { demoStudents } from '../demo.js';
 
@@ -13,7 +13,7 @@ function rows(list) {
   return list.map((s) => {
     const t = total(latest(s).scores), g = growth(s), st = STATUSES[s.status] || STATUSES.active;
     return `<a class="trow" href="#/student/${s.id}">
-      <div class="who">${avatar(s)}<div class="grow"><b>${esc(fullName(s))}</b><div class="small ell">${esc([s.role, s.company].filter(Boolean).join(' · ') || 'Место работы не указано')}</div></div></div>
+      <div class="who">${avatar(s)}<div class="grow"><b>${esc(fullName(s))}</b><div class="small ell">${esc(workLine(s))}</div></div></div>
       <div><span class="chip on">${esc(s.grade)}</span></div>
       <div class="ell">${s.goal.position ? `<b>${esc(s.goal.position)}</b>${s.goal.company ? `<div class="small ell">${esc(s.goal.company)}</div>` : ''}` : '<span class="muted">—</span>'}</div>
       <div class="prog"><div class="bar"><i style="width:${(t / 5) * 100}%"></i></div><span class="num">${fmt1(t)}</span>${g === null ? '' : `<span class="delta ${g > 0.04 ? 'up' : g < -0.04 ? 'down' : ''}">${signed(g)}</span>`}</div>
@@ -26,7 +26,7 @@ function rows(list) {
 function filtered() {
   const q = F.q.trim().toLowerCase();
   return students().filter((s) => (!F.grade || s.grade === F.grade) && (!F.status || s.status === F.status)
-    && (!q || [fullName(s), s.company, s.role, s.goal.position].join(' ').toLowerCase().includes(q)))
+    && (!q || [fullName(s), s.company, s.jobless ? 'без работы в поисках работы' : '', s.role, s.goal.position].join(' ').toLowerCase().includes(q)))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 

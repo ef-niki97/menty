@@ -1,5 +1,5 @@
 import { initAuth, isAuthed, logout, forgetUser, currentUser } from './auth.js';
-import { initStore, resetStore, exportJson, importJson, workspaces, currentWs, setWs, createWorkspace, deleteWorkspace, allStudents } from './store.js';
+import { initStore, resetStore, exportJson, importJson, workspaces, currentWs, setWs, createWorkspace, renameWorkspace, deleteWorkspace, allStudents } from './store.js';
 import { $, ACT, esc, icon, logo, toast, downloadBlob, today, openModal } from './ui.js';
 import { loginView } from './views/login.js';
 import { studentsView } from './views/students.js';
@@ -35,7 +35,7 @@ function wsSwitcher() {
     <div class="wsmenu" id="wsmenu"><div class="ws-cap">Воркспейсы</div>
       ${workspaces().map((w) => `<div class="ws-row"><button class="um-i" data-act="ws-pick" data-id="${esc(w.id)}"><span class="ell grow">${esc(w.name)}</span>${w.id === cur.id ? icon('check') : ''}</button>
         <button class="ws-dots" data-act="ws-more" data-id="${esc(w.id)}" aria-label="Действия с воркспейсом «${esc(w.name)}»">${icon('more_horiz')}</button>
-        <div class="ws-sub"><button class="um-i danger" data-act="ws-del" data-id="${esc(w.id)}">${icon('delete', 'ol')} Удалить воркспейс</button></div></div>`).join('')}
+        <div class="ws-sub"><button class="um-i" data-act="ws-rename" data-id="${esc(w.id)}">${icon('edit', 'ol')} Переименовать</button><button class="um-i danger" data-act="ws-del" data-id="${esc(w.id)}">${icon('delete', 'ol')} Удалить воркспейс</button></div></div>`).join('')}
       <div class="um-sep"></div><button class="um-i" data-act="ws-new">${icon('add')} Создать воркспейс</button></div></div>`;
 }
 function nav(active) {
@@ -87,6 +87,20 @@ document.addEventListener('click', (e) => {
 ACT['ws-toggle'] = () => { $('#umenu')?.classList.remove('on'); $('#wsmenu').classList.toggle('on'); };
 ACT['ws-pick'] = (el) => { setWs(el.dataset.id); go('/students'); };
 ACT['ws-more'] = (el) => el.closest('.ws-row').classList.toggle('open');
+ACT['ws-rename'] = (el) => {
+  const w = workspaces().find((x) => x.id === el.dataset.id); if (!w) return;
+  $('#wsmenu')?.classList.remove('on');
+  openModal(`<h2 class="d-s" style="margin-bottom:20px">Название воркспейса</h2>
+    <form class="col" id="ws-form"><div><label class="lbl">Название</label><input class="field" name="name" maxlength="60" value="${esc(w.name)}" autocomplete="off" data-1p-ignore data-lpignore="true" required></div>
+    <div class="row spread" style="margin-top:8px"><button type="button" class="pill ghost" data-close>Отмена</button><button class="pill dark" type="submit">Сохранить</button></div></form>`,
+  (m, close) => {
+    const inp = m.querySelector('input'); inp.select();
+    m.querySelector('#ws-form').addEventListener('submit', async (e) => {
+      e.preventDefault(); const name = inp.value.trim(); if (!name) return;
+      try { await renameWorkspace(w.id, name); close(); toast('Название изменено'); window.__rerender(); } catch { toast('Не удалось переименовать'); }
+    });
+  });
+};
 ACT['ws-del'] = async (el) => {
   const w = workspaces().find((x) => x.id === el.dataset.id); if (!w) return;
   if (workspaces().length <= 1) { toast('Нельзя удалить единственный воркспейс'); return; }

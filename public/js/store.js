@@ -26,6 +26,9 @@ export const resetStore = () => { cache = []; spaces = []; wsId = ''; };
 // ---------- воркспейсы ----------
 export const workspaces = () => spaces;
 export const currentWs = () => spaces.find((w) => w.id === wsId) || spaces[0] || null;
+export async function renameWorkspace(id, name) {
+  const w = await api('PUT', `/workspaces/${id}`, { name }); const x = spaces.find((s) => s.id === id); if (x) x.name = w.name;
+}
 export async function deleteWorkspace(id) {
   await api('DELETE', `/workspaces/${id}`); spaces = spaces.filter((w) => w.id !== id);
   if (wsId === id) { wsId = spaces[0]?.id || ''; rememberWs(); }

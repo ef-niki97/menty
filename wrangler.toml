@@ -2,6 +2,9 @@ name = "menty"
 main = "src/worker.js"
 compatibility_date = "2025-09-01"
 
+# Адрес *.workers.dev оставляем включённым: при наличии routes wrangler иначе отключает его по умолчанию.
+workers_dev = true
+
 # Статика сайта лежит в public/. Запросы на /api/* сначала идут в Worker.
 # Свой домен (зона menty.work уже в этом аккаунте Cloudflare): при деплое Cloudflare сам создаёт DNS-запись и сертификат.
 [[routes]]

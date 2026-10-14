@@ -88,6 +88,7 @@ document.addEventListener('click', (e) => {
   if (a && ACT[a.dataset.act]) { if (a.tagName === 'A') e.preventDefault(); ACT[a.dataset.act](a, e); }
   if (!e.target.closest('#umenu') && !e.target.closest('[data-act=menu-toggle]')) $('#umenu')?.classList.remove('on');
   if (!e.target.closest('#wsmenu') && !e.target.closest('[data-act=ws-toggle]')) $('#wsmenu')?.classList.remove('on');
+  if (!e.target.closest('.fwrap')) document.querySelectorAll('.fmenu.on').forEach((m) => m.classList.remove('on'));
 });
 
 ACT.invites = async () => {

@@ -70,17 +70,26 @@ function portfolioCard(s, ro) {
     ${list.length > 1 ? '<p class="small hint">Прошлые версии сохраняются в истории.</p>' : ''}</div>`;
 }
 
+// Строка файла: имя скачивает файл, троеточие открывает меню (скачать, сделать актуальным, удалить). Актуальный файл помечен чипом.
+function fileRow(s, c, kind, ro, ic, activeId, word) {
+  const act = c.id === activeId;
+  return `<div class="li ${act ? '' : 'old'}"><span class="ico-sq">${icon(ic)}</span><div class="grow">${ro ? `<b class="ell">${esc(c.name)}</b>` : `<button type="button" class="link-btn ell" data-act="st-cv-dl" data-id="${c.id}" data-name="${esc(c.name)}" title="Скачать">${esc(c.name)}</button>`}<div class="small">${fmtSize(c.size)} · ${fmtDate(c.addedAt)}</div></div>${act ? `<span class="chip ok">${word}</span>` : ''}
+    ${ro ? '' : `<div class="fwrap"><button type="button" class="ws-dots" data-act="file-menu" aria-label="Действия с файлом">${icon('more_horiz')}</button>
+      <div class="fmenu"><button class="um-i" data-act="st-cv-dl" data-id="${c.id}" data-name="${esc(c.name)}">${icon('download', 'ol')} Скачать</button>
+        ${act ? '' : `<button class="um-i" data-act="file-active" data-kind="${kind}" data-id="${c.id}">${icon('check_circle', 'ol')} Сделать активным</button>`}
+        <button class="um-i danger" data-act="file-del" data-kind="${kind}" data-id="${c.id}" data-name="${esc(c.name)}">${icon('delete', 'ol')} Удалить</button></div></div>`}</div>`;
+}
 function cvCard(s, ro) {
-  const list = [...s.cvs].reverse();
+  const list = [...s.cvs].reverse(), act = store.activeFileId(s, 'cvs');
   return `<div class="card"><div class="card-h"><h2 class="d-s">CV</h2>${ro ? '' : `<label class="pill ghost sm" for="cv-up" style="cursor:pointer">${icon('upload')} Загрузить новое</label><input id="cv-up" type="file" hidden accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt,.rtf">`}</div>
-    ${list.length ? `<div class="list">${list.map((c, i) => `<div class="li ${i ? 'old' : ''}"><span class="ico-sq">${icon('description')}</span><div class="grow"><b class="ell">${esc(c.name)}</b><div class="small">${fmtSize(c.size)} · ${fmtDate(c.addedAt)}</div></div>${i === 0 ? '<span class="chip ok">Актуальное</span>' : ''}${ro ? '' : `<button class="chip" data-act="st-cv-dl" data-id="${c.id}" data-name="${esc(c.name)}" aria-label="Скачать">${icon('download')}</button>`}</div>`).join('')}</div>` : '<p class="small">CV пока не загружено.</p>'}</div>`;
+    ${list.length ? `<div class="list">${list.map((c) => fileRow(s, c, 'cvs', ro, 'description', act, 'Актуальное')).join('')}</div>` : '<p class="small">CV пока не загружено.</p>'}</div>`;
 }
 
 // Договор виден только ментору: на публичной странице его нет (сервер его вообще не отдаёт).
 function contractCard(s) {
-  const list = [...(s.contracts || [])].reverse();
+  const list = [...(s.contracts || [])].reverse(), act = store.activeFileId(s, 'contracts');
   return `<div class="card"><div class="card-h"><h2 class="d-s">Договор</h2><label class="pill ghost sm" for="ct-up" style="cursor:pointer">${icon('upload')} ${list.length ? 'Загрузить новый' : 'Загрузить'}</label><input id="ct-up" type="file" hidden accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt,.rtf"></div>
-    ${list.length ? `<div class="list">${list.map((c, i) => `<div class="li ${i ? 'old' : ''}"><span class="ico-sq">${icon('contract')}</span><div class="grow"><b class="ell">${esc(c.name)}</b><div class="small">${fmtSize(c.size)} · ${fmtDate(c.addedAt)}</div></div>${i === 0 ? '<span class="chip ok">Актуальный</span>' : ''}<button class="chip" data-act="st-cv-dl" data-id="${c.id}" data-name="${esc(c.name)}" aria-label="Скачать">${icon('download')}</button></div>`).join('')}</div>` : '<p class="small">Договор пока не загружен.</p>'}</div>`;
+    ${list.length ? `<div class="list">${list.map((c) => fileRow(s, c, 'contracts', false, 'contract', act, 'Актуальный')).join('')}</div>` : '<p class="small">Договор пока не загружен.</p>'}</div>`;
 }
 
 // Отзыв после трудоустройства: ссылку отправляют менти, ответ появляется здесь.
@@ -168,6 +177,15 @@ ACT['st-cmp'] = (el) => { cmp.base = el.dataset.id; rerender(); };
 ACT['st-task'] = (el) => { store.toggleTask(sid(el), el.dataset.id); rerender(); };
 ACT['st-task-del'] = (el) => { store.removeTask(sid(el), el.dataset.id); rerender(); };
 ACT['st-sess-del'] = (el) => { if (confirm('Удалить эту запись?')) { store.removeSession(sid(el), el.dataset.id); rerender(); } };
+ACT['file-menu'] = (el) => {
+  const menu = el.parentElement.querySelector('.fmenu'), open = menu.classList.contains('on');
+  document.querySelectorAll('.fmenu.on').forEach((m) => m.classList.remove('on')); if (!open) menu.classList.add('on');
+};
+ACT['file-active'] = (el) => { store.setActiveFile(sid(el), el.dataset.kind, el.dataset.id); toast('Файл теперь актуальный'); rerender(); };
+ACT['file-del'] = async (el) => {
+  if (!confirm(`Удалить файл «${el.dataset.name}»? Это нельзя отменить.`)) return;
+  try { await store.removeFile(sid(el), el.dataset.kind, el.dataset.id); toast('Файл удалён'); rerender(); } catch { toast('Не удалось удалить файл'); }
+};
 ACT['st-cv-dl'] = async (el) => {
   try { const blob = await store.getFile(el.dataset.id); if (!blob) throw 0; downloadBlob(blob, el.dataset.name); } catch { toast('Файл не найден (в резервную копию файлы не входят)'); }
 };

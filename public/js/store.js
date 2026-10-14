@@ -78,6 +78,14 @@ export const updateStudent = (id, patch) => mutate(id, (s) => Object.assign(s, p
 export const addAssessment = (id, scores, comment) => mutate(id, (s) => s.assessments.push({ id: uid(), date: now(), scores: { ...scores }, comment: comment?.trim() || '' }));
 // Портфолио и CV не удаляются — только добавляются новые версии, чтобы сохранялась история.
 export const addPortfolio = (id, p) => mutate(id, (s) => s.portfolios.push({ id: uid(), url: p.url, title: p.title?.trim() || 'Портфолио', note: p.note?.trim() || '', addedAt: now() }));
+// Какой файл «актуальный»: выбранный ментором, а если не выбран — самый новый.
+const ACTIVE_KEY = { cvs: 'cvActive', contracts: 'contractActive' };
+export const activeFileId = (s, kind) => { const list = s[kind] || [], a = s[ACTIVE_KEY[kind]]; return list.some((x) => x.id === a) ? a : list[list.length - 1]?.id; };
+export const setActiveFile = (id, kind, fid) => mutate(id, (s) => { s[ACTIVE_KEY[kind]] = fid; });
+export async function removeFile(id, kind, fid) {
+  await api('DELETE', `/files/${fid}`); // сначала на сервере, чтобы карточка не потеряла ссылку при ошибке
+  return mutate(id, (s) => { s[kind] = (s[kind] || []).filter((x) => x.id !== fid); if (s[ACTIVE_KEY[kind]] === fid) delete s[ACTIVE_KEY[kind]]; });
+}
 export async function addCv(id, file) {
   const fid = uid(); await putFile(fid, file);
   return mutate(id, (s) => s.cvs.push({ id: fid, name: file.name, size: file.size, type: file.type, addedAt: now() }));

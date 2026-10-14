@@ -553,6 +553,7 @@ async function route(req, env, url) {
       for (let i = 0; i < stmts.length; i += 40) await env.DB.batch(stmts.slice(i, i + 40));
       return json({ ok: true });
     }
+    if (m === 'DELETE') { await deleteFile(env, owner, key); return json({ ok: true }); }
     if (m === 'GET') {
       const meta = await env.DB.prepare('SELECT type, size, r2 FROM files WHERE id = ?1 AND owner_id = ?2').bind(key, owner).first();
       if (!meta) return fail(404, 'Файл не найден');

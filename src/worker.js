@@ -18,7 +18,7 @@ const cleanOpts = (o) => Object.fromEntries(SHARE_KEYS.map((k) => [k, !(o && o[k
 const parseOpts = (t) => { try { return cleanOpts(JSON.parse(t)); } catch { return cleanOpts(null); } };
 // Скрытое вырезаем на сервере, а не только прячем в интерфейсе. Договор и личная заметка не публикуются никогда.
 function publicView(doc, opts) {
-  const { privateNote, contracts, workspaceId, ...st } = doc;
+  const { privateNote, contracts, workspaceId, review, ...st } = doc;
   const list = Array.isArray(st.assessments) && st.assessments.length ? st.assessments : [{ id: 'none', date: st.createdAt, scores: {}, comment: '' }];
   if (!opts.competencies) { st.assessments = [{ id: list[list.length - 1].id, date: list[list.length - 1].date, scores: {}, comment: '' }]; st.selfAssessments = []; }
   else if (!opts.history) st.assessments = list.slice(-1);
@@ -83,6 +83,7 @@ async function ensureSchema(env) {
     env.DB.prepare('CREATE TABLE IF NOT EXISTS students (id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL)'),
     env.DB.prepare('CREATE TABLE IF NOT EXISTS files (id TEXT PRIMARY KEY, type TEXT NOT NULL, size INTEGER NOT NULL)'),
     env.DB.prepare('CREATE TABLE IF NOT EXISTS shares (token TEXT PRIMARY KEY, student_id TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL)'),
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS review_links (token TEXT PRIMARY KEY, student_id TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL)'),
     env.DB.prepare('CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)'),
     env.DB.prepare('CREATE TABLE IF NOT EXISTS workspaces (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at TEXT NOT NULL)'),
     env.DB.prepare('CREATE TABLE IF NOT EXISTS file_chunks (id TEXT NOT NULL, n INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY (id, n))'),
@@ -149,6 +150,25 @@ async function route(req, env, url) {
     const row = await env.DB.prepare('SELECT s.data, h.opts FROM shares h JOIN students s ON s.id = h.student_id WHERE h.token = ?1').bind(pub[1]).first();
     if (!row) return fail(404, 'Ссылка недействительна');
     return json(publicView(JSON.parse(row.data), parseOpts(row.opts)), 200, { 'x-robots-tag': 'noindex, nofollow' });
+  }
+
+  // Отзыв менти по отдельной ссылке (после трудоустройства): без входа, один токен — один ученик.
+  const rv = p.match(/^\/api\/review\/([^/]+)$/);
+  if (rv && (m === 'GET' || m === 'POST')) {
+    if (!TOKEN_RE.test(rv[1])) return fail(404, 'Ссылка недействительна');
+    await ensureSchema(env);
+    const row = await env.DB.prepare('SELECT s.data FROM review_links l JOIN students s ON s.id = l.student_id WHERE l.token = ?1').bind(rv[1]).first();
+    if (!row) return fail(404, 'Ссылка недействительна');
+    const doc = JSON.parse(row.data);
+    if (m === 'POST') {
+      const { rating, comment } = await readJson(req, 8192);
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5) return fail(400, 'Поставьте оценку от 1 до 5');
+      if (comment !== undefined && typeof comment !== 'string') return fail(400, 'Некорректный комментарий');
+      doc.review = { rating, comment: (comment || '').trim().slice(0, 2000), date: new Date().toISOString() };
+      await upsert(env, doc).run();
+      return json({ ok: true });
+    }
+    return json({ firstName: doc.firstName, lastName: doc.lastName, avatar: doc.avatar || '', review: doc.review ? { rating: doc.review.rating, comment: doc.review.comment, date: doc.review.date } : null }, 200, { 'x-robots-tag': 'noindex, nofollow' });
   }
 
   // Самооценка менти по публичной ссылке: единственная запись, доступная без входа. Принимаем только оценки навыков 0–5.
@@ -224,6 +244,16 @@ async function route(req, env, url) {
     return json({ ok: true, count: students.length });
   }
 
+  r = p.match(/^\/api\/students\/([^/]+)\/review-link$/);
+  if (r && ID_RE.test(r[1]) && (m === 'GET' || m === 'POST')) {
+    const id = r[1], q = () => env.DB.prepare('SELECT token FROM review_links WHERE student_id = ?1').bind(id).first();
+    if (m === 'POST' && !(await q())) {
+      if (!(await env.DB.prepare('SELECT id FROM students WHERE id = ?1').bind(id).first())) return fail(404, 'Ученик не найден');
+      await env.DB.prepare('INSERT INTO review_links (token, student_id, created_at) VALUES (?1, ?2, ?3) ON CONFLICT(student_id) DO NOTHING').bind(newToken(), id, new Date().toISOString()).run();
+    }
+    return json({ token: (await q())?.token || null });
+  }
+
   r = p.match(/^\/api\/students\/([^/]+)\/share$/);
   if (r && ID_RE.test(r[1])) {
     const id = r[1], q = () => env.DB.prepare('SELECT token, opts FROM shares WHERE student_id = ?1').bind(id).first();
@@ -251,7 +281,7 @@ async function route(req, env, url) {
       if (!(await placeInWorkspace(env, d))) return fail(400, 'Воркспейс не найден');
       // Самооценки пишет менти через публичную ссылку — устаревший кэш ментора их не затирает.
       const cur = await env.DB.prepare('SELECT data FROM students WHERE id = ?1').bind(id).first();
-      if (cur) { const sa = JSON.parse(cur.data).selfAssessments; if (sa) d.selfAssessments = sa; else delete d.selfAssessments; }
+      if (cur) { const old = JSON.parse(cur.data); for (const k of ['selfAssessments', 'review']) { if (old[k]) d[k] = old[k]; else delete d[k]; } }
       restoreScale(d); await upsert(env, d).run(); return json({ ok: true });
     }
     if (m === 'DELETE') {
@@ -260,6 +290,7 @@ async function route(req, env, url) {
         const doc = JSON.parse(row.data), keys = [...(doc.cvs || []), ...(doc.contracts || [])].map((c) => c.id).filter((k) => typeof k === 'string' && ID_RE.test(k));
         for (const k of keys) await deleteFile(env, k);
         await env.DB.prepare('DELETE FROM shares WHERE student_id = ?1').bind(id).run();
+        await env.DB.prepare('DELETE FROM review_links WHERE student_id = ?1').bind(id).run();
         await env.DB.prepare('DELETE FROM students WHERE id = ?1').bind(id).run();
       }
       return json({ ok: true });

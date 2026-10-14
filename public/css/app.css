@@ -360,3 +360,13 @@ span.tk{cursor:default}span.tk:hover{border-color:var(--black-20)}.task.done spa
 .sh-opts{display:grid;grid-template-columns:1fr 1fr;gap:2px 16px}
 .sh-opts .chk{margin:10px 0 0 4px}
 @media (max-width:520px){.sh-opts{grid-template-columns:1fr}}
+
+/* отзыв: звёзды и ссылка */
+.stars{display:inline-flex;gap:2px}.stars .i{font-size:24px;color:var(--black-20)}.stars .on .i{color:var(--ink)}
+.rv-stars{display:flex;align-items:center;gap:10px;margin-bottom:10px}.rv-stars b{font:700 16px var(--font)}
+.rv-text{font:500 15px/1.5 var(--font);margin:0 0 16px;white-space:pre-wrap;overflow-wrap:anywhere}
+.rv-link{display:flex;gap:8px;align-items:center}.rv-link .field{flex:1;min-width:0}.rv-link .pill{flex:none}
+.rv-link.sm{padding-top:14px;border-top:1px solid var(--black-6)}
+.rv-form{max-width:620px;margin:0 auto}
+.star-pick{display:flex;gap:6px;margin:6px 0 4px}.star-pick button{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;color:var(--black-20);transition:all var(--dur-1)}
+.star-pick button .i{font-size:34px}.star-pick button.on{color:var(--ink)}.star-pick button:hover{background:var(--black-4)}

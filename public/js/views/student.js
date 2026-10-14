@@ -81,6 +81,17 @@ function contractCard(s) {
     ${list.length ? `<div class="list">${list.map((c, i) => `<div class="li ${i ? 'old' : ''}"><span class="ico-sq">${icon('contract')}</span><div class="grow"><b class="ell">${esc(c.name)}</b><div class="small">${fmtSize(c.size)} · ${fmtDate(c.addedAt)}</div></div>${i === 0 ? '<span class="chip ok">Актуальный</span>' : ''}<button class="chip" data-act="st-cv-dl" data-id="${c.id}" data-name="${esc(c.name)}" aria-label="Скачать">${icon('download')}</button></div>`).join('')}</div>` : '<p class="small">Договор пока не загружен.</p>'}</div>`;
 }
 
+// Отзыв после трудоустройства: ссылку отправляют менти, ответ появляется здесь.
+const rvTokens = {};
+const stars = (n) => `<span class="stars" aria-label="${n} из 5">${[1, 2, 3, 4, 5].map((i) => icon('star', i <= n ? '' : 'ol')).map((x, i) => `<span class="${i < n ? 'on' : ''}">${x}</span>`).join('')}</span>`;
+function reviewCard(s) {
+  const r = s.review, tok = rvTokens[s.id];
+  return `<div class="card" id="rv-card"><div class="card-h"><h2 class="d-s">Отзыв</h2>${r ? `<span class="small">${fmtDate(r.date)}</span>` : ''}</div>
+    ${r ? `<div class="rv-stars">${stars(r.rating)}<b>${r.rating}/5</b></div>${r.comment ? `<p class="rv-text pre">${esc(r.comment)}</p>` : '<p class="small">Без комментария.</p>'}`
+      : `<p class="small" style="margin-bottom:14px">Отзыва пока нет. Отправьте менти ссылку: откроется страница, где можно поставить оценку и написать комментарий.</p>`}
+    <div class="rv-link ${r ? 'sm' : ''}"><input class="field sm" id="rv-url" readonly placeholder="Создаём ссылку…" value="${tok ? esc(`${location.origin}/r/${tok}`) : ''}"><button type="button" class="pill ${r ? 'ghost' : 'dark'} sm" id="rv-copy" data-act="rv-copy" ${tok ? '' : 'disabled'}>${icon('content_copy')} Скопировать</button></div></div>`;
+}
+
 const tasksCard = (s, ro) => `<div class="card"><div class="card-h"><h2 class="d-s">Задачи</h2><span class="small">${s.tasks.filter((t) => t.done).length}/${s.tasks.length}</span></div>
   <div class="tasks">${s.tasks.map((t) => `<div class="task ${t.done ? 'done' : ''}">${ro ? `<span class="tk">${t.done ? icon('check') : ''}</span>` : `<button class="tk" data-act="st-task" data-id="${t.id}" aria-label="Отметить">${t.done ? icon('check') : ''}</button>`}<span class="grow">${esc(t.text)}</span>${ro ? '' : `<button class="x" data-act="st-task-del" data-id="${t.id}" aria-label="Удалить">${icon('close')}</button>`}</div>`).join('') || '<p class="small">Нет задач.</p>'}</div>
   ${ro ? '' : `<form class="row add-row" id="task-form"><input class="field sm" name="text" placeholder="Новая задача для ученика" autocomplete="off" required><button class="pill dark sm" type="submit">Добавить</button></form>`}</div>`;
@@ -104,7 +115,7 @@ export function studentPage(s, base, ro = false) {
       <div class="muted">${esc(workLine(s))}</div></div></div>
       ${ro ? (show('competencies') ? `<div class="row"><a class="pill dark" href="/s/${esc(token)}/assess">Оценить компетенции</a></div>` : '') : `<div class="row"><button class="pill ghost" data-act="st-share">${icon('ios_share')} Поделиться</button><button class="pill ghost" data-act="st-edit">${icon('edit')} Редактировать</button></div>`}</div>
     <div class="detail"><div class="col-main">${show('competencies') ? competenciesCard(s, now, base, ro) : ''}${show('history') ? historyCard(s, now, ro) : ''}${show('sessions') ? sessionsCard(s, ro) : ''}</div>
-      <div class="col-side">${show('goal') ? goalCard(s, ro) : ''}${show('portfolio') ? portfolioCard(s, ro) : ''}${show('cv') ? cvCard(s, ro) : ''}${ro ? '' : contractCard(s)}${show('tasks') ? tasksCard(s, ro) : ''}${ro ? '' : privateCard(s)}</div></div>`;
+      <div class="col-side">${ro || s.status !== 'hired' ? '' : reviewCard(s)}${show('goal') ? goalCard(s, ro) : ''}${show('portfolio') ? portfolioCard(s, ro) : ''}${show('cv') ? cvCard(s, ro) : ''}${ro ? '' : contractCard(s)}${show('tasks') ? tasksCard(s, ro) : ''}${ro ? '' : privateCard(s)}</div></div>`;
 }
 // Оценка, с которой сравниваем по умолчанию: самая первая (если оценок больше одной).
 export const defaultBase = (s) => (s.assessments.length > 1 ? s.assessments[0] : null);
@@ -128,6 +139,7 @@ export function studentView({ id }) {
         const f = e.target.files[0]; if (!f) return;
         try { store.updateStudent(id, { avatar: await fileToAvatar(f) }); toast('Фото обновлено'); rerender(); } catch { toast('Не удалось прочитать изображение'); }
       });
+      if (s.status === 'hired') store.reviewLink(id).then((t) => { rvTokens[id] = t; const i = root.querySelector('#rv-url'); if (i) { i.value = `${location.origin}/r/${t}`; root.querySelector('#rv-copy').disabled = false; } }).catch(() => {});
       root.querySelector('#ct-up').addEventListener('change', async (e) => {
         const f = e.target.files[0]; if (!f) return; if (f.size > MAX_FILE) { toast('Файл больше 10 МБ'); return; }
         try { await store.addContract(id, f); toast('Договор загружен'); rerender(); } catch { toast('Не удалось сохранить файл'); }
@@ -144,6 +156,11 @@ document.addEventListener('change', (e) => { if (e.target.id === 'cmp-sel') { cm
 ACT['st-view'] = (el) => {
   view = el.dataset.v; const card = document.getElementById('comp-card'); if (!card || !last) return;
   const { s, base, ro } = last; card.outerHTML = competenciesCard(s, latest(s), base, ro);
+};
+ACT['rv-copy'] = async () => {
+  const inp = document.getElementById('rv-url'); if (!inp?.value) return;
+  try { await navigator.clipboard.writeText(inp.value); } catch { inp.select(); document.execCommand('copy'); }
+  toast('Ссылка скопирована');
 };
 ACT['st-cmp'] = (el) => { cmp.base = el.dataset.id; rerender(); };
 ACT['st-task'] = (el) => { store.toggleTask(sid(el), el.dataset.id); rerender(); };

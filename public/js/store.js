@@ -109,9 +109,11 @@ export const uidNew = uid;
 // Самооценки приходят от менти напрямую в базу — подтягиваем их, не трогая остальные локальные правки.
 export async function refreshSelf(id) {
   const fresh = (await api('GET', '/students')).find((x) => x.id === id), s = getStudent(id); if (!fresh || !s) return false;
-  const changed = (fresh.selfAssessments?.length || 0) !== (s.selfAssessments?.length || 0);
-  if (changed) s.selfAssessments = fresh.selfAssessments; return changed;
+  const changed = (fresh.selfAssessments?.length || 0) !== (s.selfAssessments?.length || 0) || fresh.review?.date !== s.review?.date;
+  if (changed) { s.selfAssessments = fresh.selfAssessments; s.review = fresh.review; } return changed;
 }
+// Ссылка, по которой менти оставляет отзыв: создаётся один раз, повторный вызов отдаёт ту же.
+export const reviewLink = async (id) => (await api('POST', `/students/${id}/review-link`, {})).token;
 export const submitSelf = (token, scores) => api('POST', `/share/${encodeURIComponent(token)}/self`, { scores });
 
 // ---------- публичная ссылка на профиль ----------

@@ -6,6 +6,7 @@ import { studentsView } from './views/students.js';
 import { wizardView } from './views/wizard.js';
 import { studentView, assessView } from './views/student.js';
 import { shareView, shareAssessView } from './views/share.js';
+import { reviewView } from './views/review.js';
 
 // [шаблон пути, экран, нужна ли авторизация]
 const routes = [
@@ -16,6 +17,7 @@ const routes = [
   ['student/:id/assess', assessView, true],
   ['s/:token', shareView, false],
   ['s/:token/assess', shareAssessView, false],
+  ['r/:token', reviewView, false],
 ];
 function match(path) {
   for (const [pat, fn, auth] of routes) {
@@ -73,7 +75,7 @@ window.addEventListener('popstate', () => route(false));
 // Старые ссылки вида /#/share/… и /#/student/… переносим на новые адреса.
 if (location.hash.startsWith('#/')) history.replaceState(null, '', location.hash.slice(1).replace(/^\/share\//, '/s/'));
 window.addEventListener('menty:error', (e) => toast(e.detail));
-window.addEventListener('menty:unauth', () => { forgetUser(); resetStore(); if (location.pathname !== '/login' && !location.pathname.startsWith('/s/')) go('/login'); });
+window.addEventListener('menty:unauth', () => { forgetUser(); resetStore(); if (location.pathname !== '/login' && !/^\/[sr]\//.test(location.pathname)) go('/login'); });
 
 document.addEventListener('click', (e) => {
   const l = e.target.closest('a[href^="/"]');

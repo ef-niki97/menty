@@ -10,6 +10,19 @@ const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const TOKEN_RE = /^[A-Za-z0-9_-]{10,43}$/; // новые ссылки — 10 символов, старые — 43
 
 const SKILL_IDS = ['visual', 'typo', 'ux', 'proto', 'ds', 'product', 'comm', 'pitch', 'feedback', 'time', 'team', 'prompt', 'ai_research', 'ai_visual', 'ai_proto', 'ai_flow'];
+const isAi = (id) => id === 'prompt' || id.startsWith('ai_');
+const skillMax = (id) => (isAi(id) ? 5 : 10); // хард и софт — 10 баллов, AI — 5
+
+// Оценки без метки v:2 записаны по старой пятибалльной шкале: хард и софт переводим в десятибалльную (×2).
+function upgradeDoc(d) {
+  let changed = false;
+  for (const a of [...(Array.isArray(d.assessments) ? d.assessments : []), ...(Array.isArray(d.selfAssessments) ? d.selfAssessments : [])]) {
+    if (!a || a.v === 2) continue;
+    for (const k of Object.keys(a.scores || {})) if (!isAi(k) && a.scores[k] > 0) a.scores[k] = Math.min(10, a.scores[k] * 2);
+    a.v = 2; changed = true;
+  }
+  return changed;
+}
 
 const enc = new TextEncoder();
 const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers } });
@@ -52,6 +65,7 @@ async function ensureSchema(env) {
     env.DB.prepare('CREATE TABLE IF NOT EXISTS students (id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL)'),
     env.DB.prepare('CREATE TABLE IF NOT EXISTS files (id TEXT PRIMARY KEY, type TEXT NOT NULL, size INTEGER NOT NULL)'),
     env.DB.prepare('CREATE TABLE IF NOT EXISTS shares (token TEXT PRIMARY KEY, student_id TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL)'),
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)'),
     env.DB.prepare('CREATE TABLE IF NOT EXISTS workspaces (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at TEXT NOT NULL)'),
     env.DB.prepare('CREATE TABLE IF NOT EXISTS file_chunks (id TEXT NOT NULL, n INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY (id, n))'),
   ]);
@@ -59,6 +73,13 @@ async function ensureSchema(env) {
   let first = await env.DB.prepare('SELECT id FROM workspaces ORDER BY created_at, rowid LIMIT 1').first();
   if (!first) { await env.DB.prepare('INSERT INTO workspaces (id, name, created_at) VALUES (?1, ?2, ?3)').bind('main', 'Основной', new Date().toISOString()).run(); first = { id: 'main' }; }
   await env.DB.prepare("UPDATE students SET data = json_set(data, '$.workspaceId', ?1) WHERE json_extract(data, '$.workspaceId') IS NULL").bind(first.id).run();
+  // Один раз переводим старые оценки на десятибалльную шкалу.
+  if (!(await env.DB.prepare("SELECT v FROM meta WHERE k = 'scale10'").first())) {
+    const { results } = await env.DB.prepare('SELECT data FROM students').all(), stmts = [];
+    for (const r of results) { const d = JSON.parse(r.data); if (upgradeDoc(d)) stmts.push(upsert(env, d)); }
+    for (let i = 0; i < stmts.length; i += 50) await env.DB.batch(stmts.slice(i, i + 50));
+    await env.DB.prepare("INSERT OR IGNORE INTO meta (k, v) VALUES ('scale10', '1')").run();
+  }
   schemaReady = true;
 }
 const defaultWs = async (env) => (await env.DB.prepare('SELECT id FROM workspaces ORDER BY created_at, rowid LIMIT 1').first()).id;
@@ -119,7 +140,7 @@ async function route(req, env, url) {
     const { scores } = await readJson(req, 4096), clean = {};
     for (const k of SKILL_IDS) {
       const v = scores?.[k]; if (v === undefined) continue;
-      if (!Number.isInteger(v) || v < 0 || v > 5) return fail(400, 'Некорректные оценки');
+      if (!Number.isInteger(v) || v < 0 || v > skillMax(k)) return fail(400, 'Некорректные оценки');
       clean[k] = v;
     }
     if (!Object.values(clean).some((v) => v > 0)) return fail(400, 'Оцените хотя бы один навык');
@@ -127,7 +148,7 @@ async function route(req, env, url) {
     const row = await env.DB.prepare('SELECT s.data FROM shares h JOIN students s ON s.id = h.student_id WHERE h.token = ?1').bind(self[1]).first();
     if (!row) return fail(404, 'Ссылка недействительна');
     const doc = JSON.parse(row.data);
-    doc.selfAssessments = [...(Array.isArray(doc.selfAssessments) ? doc.selfAssessments : []), { id: newToken(), date: new Date().toISOString(), scores: clean }].slice(-20);
+    doc.selfAssessments = [...(Array.isArray(doc.selfAssessments) ? doc.selfAssessments : []), { id: newToken(), v: 2, date: new Date().toISOString(), scores: clean }].slice(-20);
     await upsert(env, doc).run();
     return json({ ok: true });
   }
@@ -171,7 +192,7 @@ async function route(req, env, url) {
   if (p === '/api/students' && m === 'POST') {
     const d = await readJson(req); if (!validDoc(d)) return fail(400, 'Некорректные данные');
     if (!(await placeInWorkspace(env, d))) return fail(400, 'Воркспейс не найден');
-    await upsert(env, d).run(); return json({ ok: true });
+    upgradeDoc(d); await upsert(env, d).run(); return json({ ok: true });
   }
   if (p === '/api/import' && m === 'POST') {
     const { students, workspaces } = await readJson(req, 20 * MAX_DOC);
@@ -179,7 +200,7 @@ async function route(req, env, url) {
     for (const x of Array.isArray(workspaces) ? workspaces : []) {
       if (x && typeof x.id === 'string' && ID_RE.test(x.id) && wsName(x.name)) await env.DB.prepare('INSERT OR IGNORE INTO workspaces (id, name, created_at) VALUES (?1, ?2, ?3)').bind(x.id, wsName(x.name), new Date().toISOString()).run();
     }
-    for (const d of students) if (!(await placeInWorkspace(env, d))) d.workspaceId = await defaultWs(env); // неизвестный воркспейс из копии → основной
+    for (const d of students) { upgradeDoc(d); if (!(await placeInWorkspace(env, d))) d.workspaceId = await defaultWs(env); } // неизвестный воркспейс из копии → основной
     for (let i = 0; i < students.length; i += 50) await env.DB.batch(students.slice(i, i + 50).map((d) => upsert(env, d)));
     return json({ ok: true, count: students.length });
   }
@@ -205,7 +226,7 @@ async function route(req, env, url) {
       // Самооценки пишет менти через публичную ссылку — устаревший кэш ментора их не затирает.
       const cur = await env.DB.prepare('SELECT data FROM students WHERE id = ?1').bind(id).first();
       if (cur) { const sa = JSON.parse(cur.data).selfAssessments; if (sa) d.selfAssessments = sa; else delete d.selfAssessments; }
-      await upsert(env, d).run(); return json({ ok: true });
+      upgradeDoc(d); await upsert(env, d).run(); return json({ ok: true });
     }
     if (m === 'DELETE') {
       const row = await env.DB.prepare('SELECT data FROM students WHERE id = ?1').bind(id).first();

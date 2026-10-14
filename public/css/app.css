@@ -355,3 +355,11 @@ span.tk{cursor:default}span.tk:hover{border-color:var(--black-20)}.task.done spa
 .ws-dots:hover,.ws-row.open .ws-dots{background:var(--black-6);color:var(--ink)}.ws-dots .i{font-size:22px}
 .ws-sub{grid-column:1/-1;display:none;padding:2px 0 4px 12px}.ws-row.open .ws-sub{display:block}
 .um-i.danger,.um-i.danger .i{color:var(--red)}.um-i.danger:hover{background:var(--red-bg)}
+
+/* 10-балльные навыки: название и уровень сверху, под ними строка точек на всю ширину */
+.sk{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"t l" "d d";gap:10px 16px}
+.sk-t{grid-area:t}.sk-l{grid-area:l;grid-column:auto;text-align:right;white-space:nowrap}.sk .dots{grid-area:d;gap:6px}
+.sk .dot,.dots.d10 .dot{width:auto;height:auto;flex:1 1 0;max-width:32px;aspect-ratio:1/1}
+.dots.d10{gap:5px}
+.sr{grid-template-columns:1.4fr 1.2fr 116px 64px}
+@media (max-width:640px){.sr{grid-template-columns:1fr 100px 54px}}

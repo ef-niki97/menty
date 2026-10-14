@@ -41,3 +41,9 @@ export const SKILLS = [
   { id: 'ai_proto', g: 'ai', label: 'AI в прототипах', short: 'AI в прототипах', hint: 'Вайбкодинг, генерация интерфейсов и кода' },
   { id: 'ai_flow', g: 'ai', label: 'Автоматизация процессов', short: 'Автоматизация', hint: 'Свои пайплайны и агенты в ежедневной работе' },
 ];
+
+// Шкала навыка: хард и софт — 10 баллов, AI — 5. Агрегаты (радар, группы, общий уровень) приводим к 5, см. metrics.js.
+for (const s of SKILLS) s.max = s.g === 'ai' ? 5 : 10;
+export const skillOf = (id) => SKILLS.find((s) => s.id === id);
+// 10-балльная шкала делится на те же пять уровней: 1–2 начальный … 9–10 эксперт.
+export const levelLabel = (s, v) => (!v ? LEVELS[0] : s.max === 5 ? LEVELS[v] : `${v} · ${LEVELS[Math.ceil(v / 2)]}`);

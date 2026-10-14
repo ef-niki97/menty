@@ -1,6 +1,6 @@
-import { SKILLS, GROUPS, LEVELS } from './config.js';
+import { SKILLS, GROUPS, levelLabel } from './config.js';
 import { esc } from './ui.js';
-import { groupAvg, total, fmt1 } from './metrics.js';
+import { groupAvg, total, fmt1, nv } from './metrics.js';
 
 // Радар по всем компетенциям. series: [{ scores, kind: 'prev' | 'now', label }]
 // Секторы подкрашены по группам навыков. «Было» — пунктир, «Стало» — заливка.
@@ -8,7 +8,7 @@ export function radar(series, { max = 5 } = {}) {
   const W = 640, H = 540, cx = W / 2, cy = H / 2 + 4, R = 160, N = SKILLS.length, step = (Math.PI * 2) / N;
   const pt = (i, v, r = R) => { const a = i * step, k = (r * v) / max; return [cx + k * Math.sin(a), cy - k * Math.cos(a)]; };
   const f = (p) => p.map((n) => n.toFixed(1)).join(',');
-  const poly = (scores) => SKILLS.map((s, i) => f(pt(i, scores?.[s.id] || 0))).join(' ');
+  const poly = (scores) => SKILLS.map((s, i) => f(pt(i, nv(s, scores?.[s.id] || 0)))).join(' ');
 
   const wedges = GROUPS.map((g) => {
     const idx = SKILLS.map((s, i) => (s.g === g.id ? i : -1)).filter((i) => i >= 0);
@@ -33,7 +33,7 @@ export function radar(series, { max = 5 } = {}) {
   const order = [...series].sort((a) => (a.kind === 'prev' ? -1 : 1));
   const layers = order.map((s) => {
     const isNow = s.kind !== 'prev';
-    const dots = isNow ? SKILLS.map((k, i) => { const v = s.scores?.[k.id] || 0; const [x, y] = pt(i, v); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="#fff" stroke="var(--ink)" stroke-width="2.2"><title>${esc(k.label)}: ${LEVELS[v]} (${v}/${max})</title></circle>`; }).join('') : '';
+    const dots = isNow ? SKILLS.map((k, i) => { const v = s.scores?.[k.id] || 0; const [x, y] = pt(i, nv(k, v)); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="#fff" stroke="var(--ink)" stroke-width="2.2"><title>${esc(k.label)}: ${levelLabel(k, v)}${k.max === 5 ? ` (${v}/5)` : ` из ${k.max}`}</title></circle>`; }).join('') : '';
     return isNow
       ? `<polygon class="r-now" points="${poly(s.scores)}" fill="rgba(17,17,19,.13)" stroke="var(--ink)" stroke-width="2.6" stroke-linejoin="round"/>${dots}`
       : `<polygon points="${poly(s.scores)}" fill="rgba(17,17,19,.03)" stroke="rgba(17,17,19,.45)" stroke-width="2.2" stroke-dasharray="7 6" stroke-linejoin="round"/>`;

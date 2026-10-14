@@ -1,6 +1,6 @@
 import { initAuth, isAuthed, logout, forgetUser, currentUser } from './auth.js';
-import { initStore, resetStore, exportJson, importJson } from './store.js';
-import { $, ACT, esc, icon, logo, toast, downloadBlob, today } from './ui.js';
+import { initStore, resetStore, exportJson, importJson, workspaces, currentWs, setWs, createWorkspace } from './store.js';
+import { $, ACT, esc, icon, logo, toast, downloadBlob, today, openModal } from './ui.js';
 import { loginView } from './views/login.js';
 import { studentsView } from './views/students.js';
 import { wizardView } from './views/wizard.js';
@@ -29,9 +29,17 @@ function match(path) {
 const app = $('#app');
 let lastPath = null;
 
+function wsSwitcher() {
+  const cur = currentWs(); if (!cur) return '';
+  return `<div class="ws"><button class="ws-btn" data-act="ws-toggle" aria-haspopup="true" aria-label="Воркспейс">${icon('workspaces', 'ol')}<span class="ell">${esc(cur.name)}</span>${icon('expand_more')}</button>
+    <div class="wsmenu" id="wsmenu"><div class="ws-cap">Воркспейсы</div>
+      ${workspaces().map((w) => `<button class="um-i" data-act="ws-pick" data-id="${esc(w.id)}"><span class="ell grow">${esc(w.name)}</span>${w.id === cur.id ? icon('check') : ''}</button>`).join('')}
+      <div class="um-sep"></div><button class="um-i" data-act="ws-new">${icon('add')} Создать воркспейс</button></div></div>`;
+}
 function nav(active) {
   const u = currentUser();
   return `<header class="nav"><div class="nav-in"><a href="/students" aria-label="Menty">${logo(28)}</a>
+    ${wsSwitcher()}
     <nav class="nav-links"><a href="/students" class="${active === 'students' ? 'on' : ''}">Ученики</a></nav>
     <div class="nav-right"><button class="avatar-btn" data-act="menu-toggle" aria-label="Меню профиля">${esc(u.name[0])}</button></div>
     <div class="umenu" id="umenu"><div class="um-name">${esc(u.name)}</div><div class="small" style="margin-bottom:8px">${esc(u.email)}</div><div class="um-sep"></div>
@@ -71,9 +79,22 @@ document.addEventListener('click', (e) => {
   const a = e.target.closest('[data-act]');
   if (a && ACT[a.dataset.act]) { if (a.tagName === 'A') e.preventDefault(); ACT[a.dataset.act](a, e); }
   if (!e.target.closest('#umenu') && !e.target.closest('[data-act=menu-toggle]')) $('#umenu')?.classList.remove('on');
+  if (!e.target.closest('#wsmenu') && !e.target.closest('[data-act=ws-toggle]')) $('#wsmenu')?.classList.remove('on');
 });
 
-ACT['menu-toggle'] = () => $('#umenu').classList.toggle('on');
+ACT['ws-toggle'] = () => { $('#umenu')?.classList.remove('on'); $('#wsmenu').classList.toggle('on'); };
+ACT['ws-pick'] = (el) => { setWs(el.dataset.id); go('/students'); };
+ACT['ws-new'] = () => {
+  $('#wsmenu')?.classList.remove('on');
+  openModal(`<h2 class="d-s">Новый воркспейс</h2><p class="small" style="margin:6px 0 20px">Воркспейс — отдельное пространство со своим списком учеников, например группа или поток.</p>
+    <form class="col" id="ws-form"><div><label class="lbl">Название</label><input class="field" name="name" maxlength="60" placeholder="Например: Поток осень 2026" autocomplete="off" data-1p-ignore data-lpignore="true" required></div>
+    <div class="row spread" style="margin-top:8px"><button type="button" class="pill ghost" data-close>Отмена</button><button class="pill dark" type="submit">Создать</button></div></form>`,
+  (m, close) => m.querySelector('#ws-form').addEventListener('submit', async (e) => {
+    e.preventDefault(); const name = new FormData(e.target).get('name').trim(); if (!name) return;
+    try { await createWorkspace(name); close(); toast('Воркспейс создан'); go('/students'); } catch { toast('Не удалось создать воркспейс'); }
+  }));
+};
+ACT['menu-toggle'] = () => { $('#wsmenu')?.classList.remove('on'); $('#umenu').classList.toggle('on'); };
 ACT.logout = async () => { await logout(); resetStore(); go('/login'); };
 ACT.backup = () => { downloadBlob(new Blob([exportJson()], { type: 'application/json' }), `menty-backup-${today()}.json`); toast('Копия скачана. Файлы CV в неё не входят'); $('#umenu')?.classList.remove('on'); };
 function onRestore(e) {

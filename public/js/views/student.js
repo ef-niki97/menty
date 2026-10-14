@@ -33,10 +33,11 @@ function competenciesCard(s, now, base, ro) {
   const nowLabel = mode === 'self' ? `Самооценка менти · ${fmtDate(cur.date)}` : mode === 'avg' ? 'Среднее: ментор и менти' : `${bs ? 'Стало' : 'Оценка'} · ${fmtDate(now.date)}`;
   const seg = me ? `<div class="seg" role="group" aria-label="Чья оценка">${VIEWS.map(([v, l]) => `<button type="button" class="${mode === v ? 'on' : ''}" data-act="st-view" data-v="${v}">${l}</button>`).join('')}</div>` : '';
   const sel = !ro && mode === 'mentor' && opts.length ? `<div class="selw">${icon('expand_more', 'trail')}<select class="field sm" id="cmp-sel" aria-label="Сравнить с"><option value="">Без сравнения</option>${opts.map((a) => `<option value="${a.id}" ${base?.id === a.id ? 'selected' : ''}>Было: ${fmtDate(a.date)}</option>`).join('')}</select></div>` : '';
-  const bar = seg || sel || me ? `<div class="cmp-bar">${seg}${sel}${me ? `<span class="small cmp-note">Менти оценил себя ${fmtDate(me.date)}</span>` : ''}</div>` : '';
+  const bar = seg || sel ? `<div class="cmp-bar">${seg}${sel}</div>` : '';
+  const note = me ? `<div class="small cmp-note">Менти оценил себя ${fmtDate(me.date)}</div>` : '';
   return `<div class="card" id="comp-card"><div class="card-h"><h2 class="d-s">Компетенции</h2>
       ${ro ? '' : `<a class="pill dark sm" href="/student/${s.id}/assess">Новая оценка</a>`}</div>
-    ${bar}
+    ${bar}${note}
     ${radar([...(bs ? [{ scores: bs.scores, kind: 'prev' }] : []), { scores: cur.scores, kind: 'now' }])}
     ${radarLegend(!!bs, bs ? `Было · ${fmtDate(bs.date)}` : '', nowLabel)}
     ${scoreOrb(cur.scores, bs?.scores, { animate: true })}
@@ -102,6 +103,7 @@ export const defaultBase = (s) => (s.assessments.length > 1 ? s.assessments[0] :
 
 export function studentView({ id }) {
   const s = store.getStudent(id); if (!s) return notFound();
+  if (s.workspaceId) store.setWs(s.workspaceId); // открыли ученика из другого воркспейса — переключаемся на него
   if (cmp.id !== id) cmp = { id, base: defaultBase(s)?.id || '' };
   const now = latest(s), base = s.assessments.find((a) => a.id === cmp.base && a.id !== now.id) || null;
   return {

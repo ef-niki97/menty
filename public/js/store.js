@@ -7,20 +7,36 @@ const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() +
 const now = () => new Date().toISOString();
 
 let cache = [];
+let spaces = []; // воркспейсы; ученики лежат в одном из них (student.workspaceId)
+let wsId = '';
+const WS_KEY = 'menty_ws'; // выбранный воркспейс помним в браузере
+const rememberWs = () => { try { localStorage.setItem(WS_KEY, wsId); } catch { /* без хранилища выберется первый */ } };
 let queue = Promise.resolve(); // записи идут по очереди, чтобы порядок сохранялся
 const fail = (msg) => window.dispatchEvent(new CustomEvent('menty:error', { detail: msg }));
 const sync = (fn) => { queue = queue.then(fn).catch((e) => { if (e.status !== 401) fail('Не удалось сохранить на сервере — проверьте соединение и обновите страницу'); console.error(e); }); return queue; };
 const save = (s) => sync(() => api('PUT', `/students/${s.id}`, s));
 
-export async function initStore() { cache = await api('GET', '/students'); }
-export const resetStore = () => { cache = []; };
+export async function initStore() {
+  [cache, spaces] = await Promise.all([api('GET', '/students'), api('GET', '/workspaces')]);
+  let saved = ''; try { saved = localStorage.getItem(WS_KEY) || ''; } catch { /* нет доступа к хранилищу */ }
+  wsId = spaces.some((w) => w.id === saved) ? saved : spaces[0]?.id || '';
+}
+export const resetStore = () => { cache = []; spaces = []; wsId = ''; };
+
+// ---------- воркспейсы ----------
+export const workspaces = () => spaces;
+export const currentWs = () => spaces.find((w) => w.id === wsId) || spaces[0] || null;
+export const setWs = (id) => { if (spaces.some((w) => w.id === id)) { wsId = id; rememberWs(); } };
+export async function createWorkspace(name) {
+  const w = await api('POST', '/workspaces', { name }); spaces.push(w); wsId = w.id; rememberWs(); return w;
+}
 
 // ---------- файлы ----------
 export const putFile = (id, blob) => api('PUT', `/files/${id}`, blob);
 export const getFile = async (id) => (await api('GET', `/files/${id}`, undefined, true)).blob();
 
 // ---------- чтение ----------
-export const students = () => cache;
+export const students = () => cache.filter((s) => s.workspaceId === currentWs()?.id); // только текущий воркспейс
 export const getStudent = (id) => cache.find((s) => s.id === id);
 
 // ---------- запись ----------
@@ -35,7 +51,7 @@ function newId(lastName) {
 export async function addStudent(d) {
   const t = now();
   const s = {
-    id: newId(d.lastName), createdAt: t, updatedAt: t,
+    id: newId(d.lastName), workspaceId: currentWs()?.id, createdAt: t, updatedAt: t,
     firstName: d.firstName.trim(), lastName: d.lastName.trim(),
     grade: d.grade, status: d.status || 'active', avatar: d.avatar || '',
     jobless: !!d.jobless, company: d.jobless ? '' : d.company?.trim() || '', role: d.jobless ? '' : d.role?.trim() || '',
@@ -68,13 +84,13 @@ export async function removeStudent(id) {
 }
 
 // ---------- резервная копия (файлы CV в неё не входят) ----------
-export const exportJson = () => JSON.stringify({ app: 'menty', version: 1, exportedAt: now(), students: cache }, null, 2);
+export const exportJson = () => JSON.stringify({ app: 'menty', version: 2, exportedAt: now(), workspaces: spaces, students: cache }, null, 2);
 export async function importJson(text) {
   const d = JSON.parse(text);
   if (!d || !Array.isArray(d.students)) throw new Error('Неверный формат файла');
-  await api('POST', '/import', { students: d.students }); await initStore();
+  await api('POST', '/import', { students: d.students, workspaces: d.workspaces }); await initStore();
 }
-export async function seed(list) { await api('POST', '/import', { students: list }); await initStore(); }
+export async function seed(list) { await api('POST', '/import', { students: list.map((s) => ({ ...s, workspaceId: currentWs()?.id })) }); await initStore(); }
 export const uidNew = uid;
 
 // Самооценки приходят от менти напрямую в базу — подтягиваем их, не трогая остальные локальные правки.

@@ -52,10 +52,23 @@ async function ensureSchema(env) {
     env.DB.prepare('CREATE TABLE IF NOT EXISTS students (id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL)'),
     env.DB.prepare('CREATE TABLE IF NOT EXISTS files (id TEXT PRIMARY KEY, type TEXT NOT NULL, size INTEGER NOT NULL)'),
     env.DB.prepare('CREATE TABLE IF NOT EXISTS shares (token TEXT PRIMARY KEY, student_id TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL)'),
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS workspaces (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at TEXT NOT NULL)'),
     env.DB.prepare('CREATE TABLE IF NOT EXISTS file_chunks (id TEXT NOT NULL, n INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY (id, n))'),
   ]);
+  // Воркспейсы: если их нет — создаём «Основной» и переносим в него всех существующих учеников.
+  let first = await env.DB.prepare('SELECT id FROM workspaces ORDER BY created_at, rowid LIMIT 1').first();
+  if (!first) { await env.DB.prepare('INSERT INTO workspaces (id, name, created_at) VALUES (?1, ?2, ?3)').bind('main', 'Основной', new Date().toISOString()).run(); first = { id: 'main' }; }
+  await env.DB.prepare("UPDATE students SET data = json_set(data, '$.workspaceId', ?1) WHERE json_extract(data, '$.workspaceId') IS NULL").bind(first.id).run();
   schemaReady = true;
 }
+const defaultWs = async (env) => (await env.DB.prepare('SELECT id FROM workspaces ORDER BY created_at, rowid LIMIT 1').first()).id;
+// Ученик всегда лежит в существующем воркспейсе: без указания — в первом (основном).
+async function placeInWorkspace(env, d) {
+  if (!d.workspaceId) { d.workspaceId = await defaultWs(env); return true; }
+  return typeof d.workspaceId === 'string' && !!(await env.DB.prepare('SELECT id FROM workspaces WHERE id = ?1').bind(d.workspaceId).first());
+}
+const wsOut = (r) => ({ id: r.id, name: r.name, createdAt: r.created_at });
+const wsName = (v) => (typeof v === 'string' && v.trim().length >= 1 && v.trim().length <= 60 ? v.trim() : null);
 
 const deleteFile = (env, id) => env.DB.batch([
   env.DB.prepare('DELETE FROM file_chunks WHERE id = ?1').bind(id),
@@ -124,22 +137,54 @@ async function route(req, env, url) {
 
   await ensureSchema(env);
 
+  if (p === '/api/workspaces' && m === 'GET') {
+    const { results } = await env.DB.prepare('SELECT id, name, created_at FROM workspaces ORDER BY created_at, rowid').all();
+    return json(results.map(wsOut));
+  }
+  if (p === '/api/workspaces' && m === 'POST') {
+    const name = wsName((await readJson(req, 4096)).name); if (!name) return fail(400, 'Введите название (до 60 символов)');
+    const row = { id: newToken(), name, created_at: new Date().toISOString() };
+    await env.DB.prepare('INSERT INTO workspaces (id, name, created_at) VALUES (?1, ?2, ?3)').bind(row.id, row.name, row.created_at).run();
+    return json(wsOut(row));
+  }
+  let r = p.match(/^\/api\/workspaces\/([^/]+)$/);
+  if (r && ID_RE.test(r[1])) {
+    const id = r[1], cur = await env.DB.prepare('SELECT id, name, created_at FROM workspaces WHERE id = ?1').bind(id).first();
+    if (!cur) return fail(404, 'Воркспейс не найден');
+    if (m === 'PUT') {
+      const name = wsName((await readJson(req, 4096)).name); if (!name) return fail(400, 'Введите название (до 60 символов)');
+      await env.DB.prepare('UPDATE workspaces SET name = ?2 WHERE id = ?1').bind(id, name).run();
+      return json(wsOut({ ...cur, name }));
+    }
+    if (m === 'DELETE') {
+      if ((await env.DB.prepare('SELECT COUNT(*) AS n FROM workspaces').first()).n <= 1) return fail(409, 'Нельзя удалить последний воркспейс');
+      if ((await env.DB.prepare("SELECT COUNT(*) AS n FROM students WHERE json_extract(data, '$.workspaceId') = ?1").bind(id).first()).n) return fail(409, 'В воркспейсе есть ученики');
+      await env.DB.prepare('DELETE FROM workspaces WHERE id = ?1').bind(id).run();
+      return json({ ok: true });
+    }
+  }
+
   if (p === '/api/students' && m === 'GET') {
     const { results } = await env.DB.prepare('SELECT data FROM students').all();
     return json(results.map((r) => JSON.parse(r.data)));
   }
   if (p === '/api/students' && m === 'POST') {
     const d = await readJson(req); if (!validDoc(d)) return fail(400, 'Некорректные данные');
+    if (!(await placeInWorkspace(env, d))) return fail(400, 'Воркспейс не найден');
     await upsert(env, d).run(); return json({ ok: true });
   }
   if (p === '/api/import' && m === 'POST') {
-    const { students } = await readJson(req, 20 * MAX_DOC);
+    const { students, workspaces } = await readJson(req, 20 * MAX_DOC);
     if (!Array.isArray(students) || !students.every(validDoc)) return fail(400, 'Некорректный файл');
+    for (const x of Array.isArray(workspaces) ? workspaces : []) {
+      if (x && typeof x.id === 'string' && ID_RE.test(x.id) && wsName(x.name)) await env.DB.prepare('INSERT OR IGNORE INTO workspaces (id, name, created_at) VALUES (?1, ?2, ?3)').bind(x.id, wsName(x.name), new Date().toISOString()).run();
+    }
+    for (const d of students) if (!(await placeInWorkspace(env, d))) d.workspaceId = await defaultWs(env); // неизвестный воркспейс из копии → основной
     for (let i = 0; i < students.length; i += 50) await env.DB.batch(students.slice(i, i + 50).map((d) => upsert(env, d)));
     return json({ ok: true, count: students.length });
   }
 
-  let r = p.match(/^\/api\/students\/([^/]+)\/share$/);
+  r = p.match(/^\/api\/students\/([^/]+)\/share$/);
   if (r && ID_RE.test(r[1])) {
     const id = r[1], q = () => env.DB.prepare('SELECT token FROM shares WHERE student_id = ?1').bind(id).first();
     if (m === 'GET') return json({ token: (await q())?.token || null });
@@ -156,6 +201,7 @@ async function route(req, env, url) {
     const id = r[1];
     if (m === 'PUT') {
       const d = await readJson(req); if (!validDoc(d) || d.id !== id) return fail(400, 'Некорректные данные');
+      if (!(await placeInWorkspace(env, d))) return fail(400, 'Воркспейс не найден');
       // Самооценки пишет менти через публичную ссылку — устаревший кэш ментора их не затирает.
       const cur = await env.DB.prepare('SELECT data FROM students WHERE id = ?1').bind(id).first();
       if (cur) { const sa = JSON.parse(cur.data).selfAssessments; if (sa) d.selfAssessments = sa; else delete d.selfAssessments; }

@@ -226,7 +226,11 @@ async function resolveUser(env, provider, prof, invite) {
         if (claim.meta?.changes !== 1) return { error: 'invite_invalid' };
       }
       user = { id: crypto.randomUUID(), email, name: (prof.name || email).slice(0, 100), avatar: prof.avatar, role: isAdmin ? 'admin' : 'mentor' };
-      await env.DB.prepare('INSERT INTO users (id, email, name, avatar, role, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)').bind(user.id, user.email, user.name, user.avatar, user.role, now).run();
+      try { await env.DB.prepare('INSERT INTO users (id, email, name, avatar, role, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)').bind(user.id, user.email, user.name, user.avatar, user.role, now).run(); }
+      catch (e) { // не удалось создать аккаунт — возвращаем приглашение, чтобы оно не пропало зря
+        if (!isAdmin && mode !== 'open') await env.DB.prepare('UPDATE invites SET used_by = NULL, used_at = NULL WHERE code = ?1').bind(invite).run().catch(() => {});
+        throw e;
+      }
     }
     await env.DB.prepare('INSERT OR IGNORE INTO identities (provider, provider_id, user_id) VALUES (?1, ?2, ?3)').bind(provider, prof.id, user.id).run();
   }

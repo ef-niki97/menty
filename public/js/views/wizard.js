@@ -52,7 +52,7 @@ export function wizardView() {
   draft = blank(); step = 1; saving = false;
   return {
     shell: 'bare',
-    html: `<div class="stage view"><div class="stage-top"><a class="back" href="#/students">${icon('arrow_back')} К ученикам</a><span class="small">Новый ученик</span></div>
+    html: `<div class="stage view"><div class="stage-top"><a class="back" href="/students">${icon('arrow_back')} К ученикам</a><span class="small">Новый ученик</span></div>
       <div class="stage-body"><nav class="side-steps" id="w-steps" aria-label="Шаги"></nav>
       <div class="stage-col"><div class="stage-main" id="w-main"></div></div></div>
       <div class="stage-foot"><div class="in" id="w-foot"></div></div></div>`,
@@ -93,7 +93,7 @@ export function wizardView() {
         if (!nameOk() || saving) return;
         if (draft.portfolio && !safeUrl(draft.portfolio)) { step = 1; paint(); toast('Проверьте ссылку на портфолио'); return; }
         saving = true; syncFoot();
-        try { const s = await addStudent({ ...draft, portfolio: draft.portfolio ? safeUrl(draft.portfolio) : '' }); toast('Ученик создан'); location.hash = `#/student/${s.id}`; }
+        try { const s = await addStudent({ ...draft, portfolio: draft.portfolio ? safeUrl(draft.portfolio) : '' }); toast('Ученик создан'); window.__go(`/student/${s.id}`); }
         catch (err) { saving = false; syncFoot(); toast('Не удалось создать ученика'); console.error(err); }
       };
       paint();

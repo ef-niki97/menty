@@ -33,7 +33,7 @@ public/js/demo.js   демо-ученики (кнопка на пустом эк
 
 ## Экраны
 
-`#/login` · `#/students` (список) · `#/students/new` (добавление) · `#/student/:id` (карточка) · `#/student/:id/assess` (новая оценка)
+`/login` · `/students` (список) · `/students/new` (добавление) · `/student/:id` (карточка) · `/student/:id/assess` (новая оценка) · `/s/:token` (публичная ссылка)
 
 ## Безопасность
 

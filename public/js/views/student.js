@@ -10,7 +10,7 @@ const MAX_FILE = 10 * 1024 * 1024;
 let cmp = { id: '', base: '' }; // с какой оценкой сравниваем текущую
 const sid = (el) => el.closest('[data-sid]').dataset.sid;
 const rerender = () => window.__rerender();
-const notFound = () => ({ shell: 'app', nav: 'students', html: `<div class="page empty view" style="padding-top:96px">${icon('person_off', 'ol')}<p>Ученик не найден</p><a class="pill dark" href="#/students">К списку</a></div>` });
+const notFound = () => ({ shell: 'app', nav: 'students', html: `<div class="page empty view" style="padding-top:96px">${icon('person_off', 'ol')}<p>Ученик не найден</p><a class="pill dark" href="/students">К списку</a></div>` });
 const dChip = (d) => d === null || Math.abs(d) < 0.05 ? '' : `<span class="delta ${d > 0 ? 'up' : 'down'}">${d > 0 ? '↑' : '↓'} ${fmt1(Math.abs(d))}</span>`;
 
 // ---------- блоки ----------
@@ -26,7 +26,7 @@ function competenciesCard(s, now, base, ro) {
   const opts = s.assessments.filter((a) => a.id !== now.id);
   return `<div class="card"><div class="card-h"><h2 class="d-s">Компетенции</h2>
       ${ro ? '' : `<div class="row">${opts.length ? `<div class="selw">${icon('expand_more', 'trail')}<select class="field sm" id="cmp-sel" aria-label="Сравнить с"><option value="">Без сравнения</option>${opts.map((a) => `<option value="${a.id}" ${base?.id === a.id ? 'selected' : ''}>Было: ${fmtDate(a.date)}</option>`).join('')}</select></div>` : ''}
-      <a class="pill dark sm" href="#/student/${s.id}/assess">${icon('add_chart')} Новая оценка</a></div>`}</div>
+      <a class="pill dark sm" href="/student/${s.id}/assess">${icon('add_chart')} Новая оценка</a></div>`}</div>
     ${radar([...(base ? [{ scores: base.scores, kind: 'prev' }] : []), { scores: now.scores, kind: 'now' }])}
     ${radarLegend(!!base, base ? `Было · ${fmtDate(base.date)}` : '', `${base ? 'Стало' : 'Оценка'} · ${fmtDate(now.date)}`)}
     ${scoreOrb(now.scores, base?.scores, { animate: true })}
@@ -96,7 +96,7 @@ export function studentView({ id }) {
   return {
     shell: 'app', nav: 'students',
     html: `<div class="page view" data-sid="${s.id}" style="padding-top:36px">
-      <a class="back" href="#/students">${icon('arrow_back')} Ученики</a>
+      <a class="back" href="/students">${icon('arrow_back')} Ученики</a>
       ${studentPage(s, base)}</div>`,
     mount(root) {
       root.querySelector('#cmp-sel')?.addEventListener('change', (e) => { cmp.base = e.target.value; rerender(); });
@@ -161,7 +161,7 @@ ACT['st-edit'] = (el) => {
     m.querySelector('#ed-av-del')?.addEventListener('click', () => { store.updateStudent(id, { avatar: '' }); close(); toast('Фото убрано'); rerender(); });
     m.querySelector('#ed-del').addEventListener('click', async () => {
       if (!confirm(`Удалить ${fullName(s)} вместе с историей оценок и файлами? Это нельзя отменить.`)) return;
-      await store.removeStudent(id); close(); toast('Ученик удалён'); location.hash = '#/students';
+      await store.removeStudent(id); close(); toast('Ученик удалён'); window.__go('/students');
     });
   });
 };
@@ -172,12 +172,12 @@ export function assessView({ id }) {
   const prev = latest(s), scores = { ...prev.scores };
   return {
     shell: 'app', nav: 'students',
-    html: `<div class="page view" style="padding-top:36px"><a class="back" href="#/student/${s.id}">${icon('arrow_back')} ${esc(fullName(s))}</a>
+    html: `<div class="page view" style="padding-top:36px"><a class="back" href="/student/${s.id}">${icon('arrow_back')} ${esc(fullName(s))}</a>
       <div class="eyebrow" style="margin-top:20px">Новая оценка</div><h1 class="d-m">Как изменился ${esc(s.firstName)}?</h1>
       <p class="lede" style="margin:8px 0 28px">Значения подставлены из прошлой оценки (${fmtDate(prev.date)}). Измените то, что выросло — пунктир на диаграмме покажет, как было.</p>
       <div class="skills-wrap"><div class="skills-col" id="as-skills">${skillsEditorHtml(scores, prev.scores)}
         <div class="private"><label class="lbl">Комментарий к оценке</label><textarea class="field" id="as-comment" placeholder="Что изменилось, за счёт чего, над чем работаем дальше"></textarea></div>
-        <div class="row spread" style="margin-top:8px"><a class="pill ghost" href="#/student/${s.id}">Отмена</a><button class="pill dark lg" id="as-save">${icon('check')} Сохранить оценку</button></div></div>
+        <div class="row spread" style="margin-top:8px"><a class="pill ghost" href="/student/${s.id}">Отмена</a><button class="pill dark lg" id="as-save">${icon('check')} Сохранить оценку</button></div></div>
         <aside class="skills-side"><div class="card"><div id="as-radar"></div><div id="as-tiles"></div></div></aside></div></div>`,
     mount(root) {
       const draw = () => { root.querySelector('#as-radar').innerHTML = radar([{ scores: prev.scores, kind: 'prev' }, { scores, kind: 'now' }]) + radarLegend(true, `Было · ${fmtDate(prev.date)}`, 'Стало'); root.querySelector('#as-tiles').innerHTML = scoreOrb(scores, prev.scores); };
@@ -186,7 +186,7 @@ export function assessView({ id }) {
         const same = SKILLS.every((k) => (scores[k.id] || 0) === (prev.scores[k.id] || 0));
         if (same && !confirm('Оценки не изменились. Всё равно сохранить?')) return;
         store.addAssessment(id, scores, root.querySelector('#as-comment').value); cmp = { id, base: prev.id };
-        toast('Оценка сохранена'); location.hash = `#/student/${id}`;
+        toast('Оценка сохранена'); window.__go(`/student/${id}`);
       });
     },
   };
@@ -194,7 +194,7 @@ export function assessView({ id }) {
 
 // ---------- публичная ссылка ----------
 ACT['st-share'] = (el) => {
-  const id = sid(el), url = (t) => `${location.origin}${location.pathname}#/s/${t}`;
+  const id = sid(el), url = (t) => `${location.origin}/s/${t}`;
   openModal(`<h2 class="d-s">Поделиться профилем</h2>
     <p class="small" style="margin:6px 0 20px">Ссылка открывает профиль только для просмотра: без кнопок, без входа и без вашей личной заметки. Данные всегда актуальные.</p>
     <div id="sh-body"><div class="small">Загрузка…</div></div>

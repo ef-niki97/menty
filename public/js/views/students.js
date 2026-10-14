@@ -12,7 +12,7 @@ function rows(list) {
   if (!list.length) return `<div class="empty">${icon('search_off', 'ol')}<p>Никого не нашли. Попробуйте изменить фильтры.</p></div>`;
   return list.map((s) => {
     const t = total(latest(s).scores), g = growth(s), st = STATUSES[s.status] || STATUSES.active;
-    return `<a class="trow" href="#/student/${s.id}">
+    return `<a class="trow" href="/student/${s.id}">
       <div class="who">${avatar(s)}<div class="grow"><b>${esc(fullName(s))}</b><div class="small ell">${esc(workLine(s))}</div></div></div>
       <div><span class="chip on">${esc(s.grade)}</span></div>
       <div class="ell">${s.goal.position ? `<b>${esc(s.goal.position)}</b>${s.goal.company ? `<div class="small ell">${esc(s.goal.company)}</div>` : ''}` : '<span class="muted">—</span>'}</div>
@@ -32,11 +32,11 @@ function filtered() {
 
 export function studentsView() {
   const all = students();
-  const head = `<div class="section-h"><div><div class="eyebrow">Менти</div><h1 class="d-m">Ученики</h1></div><a class="pill dark" href="#/students/new">${icon('add')} Добавить ученика</a></div>`;
+  const head = `<div class="section-h"><div><div class="eyebrow">Менти</div><h1 class="d-m">Ученики</h1></div><a class="pill dark" href="/students/new">${icon('add')} Добавить ученика</a></div>`;
   if (!all.length) {
     return { shell: 'app', nav: 'students', html: `<div class="page view" style="padding-top:48px">${head}
       <div class="card empty-card">${icon('group_add', 'ol')}<h2 class="d-s">Пока никого нет</h2><p class="lede">Добавьте первого ученика — оценим компетенции и построим стартовую диаграмму.</p>
-      <div class="row" style="justify-content:center;margin-top:24px"><a class="pill dark" href="#/students/new">${icon('add')} Добавить ученика</a><button class="pill ghost" data-act="seed-demo">Загрузить демо-данные</button></div></div></div>` };
+      <div class="row" style="justify-content:center;margin-top:24px"><a class="pill dark" href="/students/new">${icon('add')} Добавить ученика</a><button class="pill ghost" data-act="seed-demo">Загрузить демо-данные</button></div></div></div>` };
   }
   const active = all.filter((s) => s.status === 'active').length;
   const avgNow = all.reduce((a, s) => a + total(latest(s).scores), 0) / all.length;

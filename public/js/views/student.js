@@ -34,7 +34,9 @@ function competenciesCard(s, now, base, ro) {
   const seg = me ? `<div class="seg" role="group" aria-label="Чья оценка">${VIEWS.map(([v, l]) => `<button type="button" class="${mode === v ? 'on' : ''}" data-act="st-view" data-v="${v}">${l}</button>`).join('')}</div>` : '';
   const sel = !ro && mode === 'mentor' && opts.length ? `<div class="selw">${icon('expand_more', 'trail')}<select class="field sm" id="cmp-sel" aria-label="Сравнить с"><option value="">Без сравнения</option>${opts.map((a) => `<option value="${a.id}" ${base?.id === a.id ? 'selected' : ''}>Было: ${fmtDate(a.date)}</option>`).join('')}</select></div>` : '';
   const bar = seg || sel ? `<div class="cmp-bar">${seg}${sel}</div>` : '';
-  const note = me ? `<div class="small cmp-note">Менти оценил себя ${fmtDate(me.date)}</div>` : '';
+  const miss = SKILLS.filter((k) => !(cur.scores?.[k.id] > 0)).length;
+  const note = (me ? `<div class="small cmp-note">Менти оценил себя ${fmtDate(me.date)}</div>` : '')
+    + (!ro && mode === 'mentor' && miss && miss < SKILLS.length ? `<div class="small cmp-note">Не оценено компетенций: ${miss} (бледные подписи на диаграмме). Нажмите «Новая оценка», чтобы оценить новые.</div>` : '');
   return `<div class="card" id="comp-card"><div class="card-h"><h2 class="d-s">Компетенции</h2>
       ${ro ? '' : `<a class="pill dark sm" href="/student/${s.id}/assess">Новая оценка</a>`}</div>
     ${bar}${note}

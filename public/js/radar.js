@@ -8,7 +8,9 @@ export function radar(series, { max = 5 } = {}) {
   const W = 640, H = 540, cx = W / 2, cy = H / 2 + 4, R = 160, N = SKILLS.length, step = (Math.PI * 2) / N;
   const pt = (i, v, r = R) => { const a = i * step, k = (r * v) / max; return [cx + k * Math.sin(a), cy - k * Math.cos(a)]; };
   const f = (p) => p.map((n) => n.toFixed(1)).join(',');
-  const poly = (scores) => SKILLS.map((s, i) => f(pt(i, scores?.[s.id] || 0))).join(' ');
+  // Неоценённые навыки (0) не тянут контур к центру: контур строим только по оценённым, а подпись неоценённого бледнеет.
+  const poly = (scores) => SKILLS.map((s, i) => (scores?.[s.id] > 0 ? f(pt(i, scores[s.id])) : '')).filter(Boolean).join(' ');
+  const nowS = series.find((s) => s.kind !== 'prev');
 
   const wedges = GROUPS.map((g) => {
     const idx = SKILLS.map((s, i) => (s.g === g.id ? i : -1)).filter((i) => i >= 0);
@@ -33,13 +35,14 @@ export function radar(series, { max = 5 } = {}) {
     const anchor = dx > 8 ? 'start' : dx < -8 ? 'end' : 'middle';
     const g = GROUPS.find((q) => q.id === s.g);
     const tx = anchor === 'start' ? x + 9 : anchor === 'end' ? x - 9 : x;
-    return `<g><circle cx="${x}" cy="${y}" r="3.5" fill="${g.color}"/><text x="${tx}" y="${y + (anchor === 'middle' ? (y < cy ? -9 : 17) : 4.5)}" text-anchor="${anchor}" font-size="${N > 20 ? 12 : 13.5}" font-weight="600" fill="rgba(17,17,19,.78)" letter-spacing="-.01em">${esc(s.short)}</text></g>`;
+    return `<g><circle cx="${x}" cy="${y}" r="3.5" fill="${g.color}"/><text x="${tx}" y="${y + (anchor === 'middle' ? (y < cy ? -9 : 17) : 4.5)}" text-anchor="${anchor}" font-size="${N > 20 ? 12 : 13.5}" font-weight="600" fill="${nowS && !(nowS.scores?.[s.id] > 0) ? 'rgba(17,17,19,.34)' : 'rgba(17,17,19,.78)'}" letter-spacing="-.01em">${esc(s.short)}</text></g>`;
   }).join('');
 
   const order = [...series].sort((a) => (a.kind === 'prev' ? -1 : 1));
   const layers = order.map((s) => {
     const isNow = s.kind !== 'prev';
-    const dots = isNow ? SKILLS.map((k, i) => { const v = s.scores?.[k.id] || 0; const [x, y] = pt(i, v); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="#fff" stroke="var(--ink)" stroke-width="2.2"><title>${esc(k.label)}: ${LEVELS[v]} (${v}/${max})</title></circle>`; }).join('') : '';
+    const dots = isNow ? SKILLS.map((k, i) => { const v = s.scores?.[k.id] || 0; if (!v) return ''; const [x, y] = pt(i, v); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="#fff" stroke="var(--ink)" stroke-width="2.2"><title>${esc(k.label)}: ${LEVELS[v]} (${v}/${max})</title></circle>`; }).join('') : '';
+    if (!poly(s.scores)) return '';
     return isNow
       ? `<polygon class="r-now" points="${poly(s.scores)}" fill="rgba(17,17,19,.13)" stroke="var(--ink)" stroke-width="2.6" stroke-linejoin="round"/>${dots}`
       : `<polygon points="${poly(s.scores)}" fill="rgba(17,17,19,.03)" stroke="rgba(17,17,19,.45)" stroke-width="2.2" stroke-dasharray="7 6" stroke-linejoin="round"/>`;

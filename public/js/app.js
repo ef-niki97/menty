@@ -50,10 +50,12 @@ function nav(active) {
     <div class="umenu" id="umenu"><div class="um-name">${esc(u.name)}</div><div class="small" style="margin-bottom:8px">${esc(u.email)}</div><div class="um-sep"></div>
       <button class="um-i" data-act="backup">${icon('download')} Скачать резервную копию</button>
       <label class="um-i" for="restore-in">${icon('upload')} Восстановить из копии</label><input id="restore-in" type="file" accept="application/json,.json" hidden>
-      ${u.role === 'admin' ? `<button class="um-i" data-act="invites">${icon('group_add', 'ol')} Приглашения</button><button class="um-i" data-act="files-migrate">${icon('cloud_upload', 'ol')} Перенести файлы в R2</button>` : ''}
+      ${u.role === 'admin' ? `<button class="um-i" data-act="invites">${icon('group_add', 'ol')} Приглашения</button>` : ''}
       <div class="um-sep"></div><button class="um-i" data-act="logout">${icon('logout')} Выйти</button>
       ${u.role === 'admin' ? '' : `<button class="um-i danger" data-act="acc-del">${icon('person_remove', 'ol')} Удалить аккаунт</button>`}
-      <div class="um-sep"></div><div class="legal-links" style="margin:0 0 2px 12px"><a href="/terms" target="_blank" rel="noopener">Условия</a> · <a href="/privacy" target="_blank" rel="noopener">Политика</a></div></div></div></header>`;
+      <div class="um-sep"></div>
+      <a class="um-i" href="/privacy" target="_blank" rel="noopener">${icon('shield', 'ol')} Политика конфиденциальности</a>
+      <a class="um-i" href="/terms" target="_blank" rel="noopener">${icon('description', 'ol')} Условия использования</a></div></div></header>`;
 }
 
 function render(path, keep) {
@@ -113,12 +115,6 @@ ACT.invites = async () => {
       } catch { toast('Не удалось выполнить действие'); }
     });
   });
-};
-ACT['files-migrate'] = async () => {
-  $('#umenu')?.classList.remove('on'); let moved = 0;
-  try {
-    for (;;) { const r = await api('POST', '/admin/migrate-files', {}); moved += r.moved; if (!r.left || !r.moved) { toast(r.left ? `Перенесено ${moved}, осталось ${r.left}` : `Готово: перенесено файлов — ${moved}`); break; } toast(`Перенесено ${moved}, осталось ${r.left}…`); }
-  } catch (e) { toast(e.status === 409 ? 'Хранилище R2 ещё не подключено' : 'Не удалось перенести файлы'); }
 };
 ACT['acc-del'] = () => {
   $('#umenu')?.classList.remove('on'); const email = currentUser().email;

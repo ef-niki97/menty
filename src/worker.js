@@ -357,15 +357,6 @@ async function route(req, env, url) {
     return json({ ok: true });
   }
 
-  // перенос старых файлов из D1 в R2 пачками (только администратор)
-  if (p === '/api/admin/migrate-files' && m === 'POST') {
-    if (user.role !== 'admin') return fail(403, 'Недостаточно прав');
-    if (!env.FILES) return fail(409, 'Хранилище R2 не подключено');
-    const { results } = await env.DB.prepare('SELECT id, owner_id, type, size FROM files WHERE r2 = 0 ORDER BY size LIMIT 3').all();
-    for (const f of results) await moveToR2(env, f.owner_id, f.id, f, await readLegacy(env, f.id, f.size));
-    return json({ moved: results.length, left: (await env.DB.prepare('SELECT COUNT(*) AS n FROM files WHERE r2 = 0').first()).n });
-  }
-
   if (p === '/api/workspaces' && m === 'GET') {
     await defaultWs(env, owner);
     const { results } = await env.DB.prepare('SELECT id, name, created_at FROM workspaces WHERE owner_id = ?1 ORDER BY created_at, rowid').bind(owner).all();

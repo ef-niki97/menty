@@ -83,6 +83,9 @@ function fx(t, dt) {
 
 
 
+function chevron(cx, cy, w) { ctx.save(); ctx.strokeStyle = 'rgba(17,17,19,.55)'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(cx - w, cy - w * .4); ctx.lineTo(cx, cy + w * .5); ctx.lineTo(cx + w, cy - w * .4); ctx.stroke(); ctx.restore(); }
+function burger(x, cy) { ctx.save(); ctx.strokeStyle = INK; ctx.lineWidth = 4; ctx.lineCap = 'round'; [-9, 0, 9].forEach((d) => { ctx.beginPath(); ctx.moveTo(x, cy + d); ctx.lineTo(x + 28, cy + d); ctx.stroke(); }); ctx.restore(); }
+function magnifier(cx, cy, r) { ctx.save(); ctx.strokeStyle = 'rgba(17,17,19,.45)'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.stroke(); ctx.beginPath(); ctx.moveTo(cx + r * .75, cy + r * .75); ctx.lineTo(cx + r * 1.5, cy + r * 1.5); ctx.stroke(); ctx.restore(); }
 // ---------- главная ментора: список менти (обезличенный) ----------
 function home(h) {
   const a = eo(seg(h, 0, .4)) * (1 - seg(h, 2.25, 2.6)); if (a <= 0) return;
@@ -98,7 +101,7 @@ function home(h) {
   // шапка сайта
   part(0, () => {
     logoMark(40, 24, 60);
-    rr(130, 26, 300, 60, 30, 'rgba(17,17,19,.07)'); txt('☰', 160, 68, { size: 30, weight: 600 }); txt('Основной', 205, 66, { size: 28, weight: 700 }); txt('⌄', 390, 64, { size: 28, weight: 600, color: 'rgba(17,17,19,.5)' });
+    rr(130, 26, 300, 60, 30, 'rgba(17,17,19,.07)'); burger(160, 56); txt('Основной', 206, 66, { size: 28, weight: 700 }); chevron(398, 56, 9);
     rr(470, 28, 160, 56, 28, 'rgba(17,17,19,.07)'); txt('Ученики', 550, 66, { size: 27, weight: 600, align: 'center' });
     ctx.beginPath(); ctx.arc(1570, 56, 30, 0, 7); ctx.fillStyle = INK; ctx.fill(); txt('A', 1570, 67, { size: 28, weight: 700, color: '#fff', align: 'center' });
     txt('МЕНТИ', 40, 168, { size: 20, weight: 700, color: 'rgba(17,17,19,.45)', ls: 3 }); txt('Ученики', 40, 236, { size: 64, weight: 800, ls: -2 });
@@ -110,9 +113,11 @@ function home(h) {
   }));
   // фильтры
   part(4, () => {
-    rr(40, 490, 640, 64, 32, 'rgba(17,17,19,.06)'); txt('⌕  Поиск по имени, компании, должности', 76, 531, { size: 24, weight: 500, color: 'rgba(17,17,19,.4)' });
-    rr(710, 490, 560, 64, 32, 'rgba(17,17,19,.06)'); rr(716, 496, 168, 52, 26, '#fff', { shadow: true }); ['Все грейды', 'Junior', 'Middle'].forEach((l, i) => txt(l, [800, 940, 1090][i], 531, { size: 23, weight: 700, color: i ? 'rgba(17,17,19,.45)' : INK, align: 'center' }));
-    rr(1300, 490, 280, 64, 32, 'rgba(17,17,19,.06)'); txt('Любой статус  ⌄', 1440, 531, { size: 24, weight: 600, align: 'center' });
+    rr(40, 490, 640, 64, 32, 'rgba(17,17,19,.06)'); magnifier(80, 522, 11); txt('Поиск по имени, компании, должности', 108, 531, { size: 24, weight: 500, color: 'rgba(17,17,19,.4)' });
+    // переключатель грейдов: ширина контейнера = сумма кнопок + отступы, подписи по центру кнопок
+    const gw = [190, 140, 140], gx = [716, 716 + 190 + 6, 716 + 190 + 6 + 140 + 6]; rr(710, 490, 6 + 190 + 6 + 140 + 6 + 140 + 6, 64, 32, 'rgba(17,17,19,.06)'); rr(gx[0], 496, gw[0], 52, 26, '#fff', { shadow: true });
+    ['Все грейды', 'Junior', 'Middle'].forEach((l, i) => txt(l, gx[i] + gw[i] / 2, 530, { size: 23, weight: 700, color: i ? 'rgba(17,17,19,.45)' : INK, align: 'center' }));
+    rr(1300, 490, 280, 64, 32, 'rgba(17,17,19,.06)'); txt('Любой статус', 1400, 531, { size: 24, weight: 600, align: 'center' }); chevron(1536, 522, 9);
   });
   // таблица
   part(5, () => {
@@ -271,53 +276,71 @@ function frame(T) {
 }
 
 
-// ---------- музыка: короткий трек, синтезируется на лету (Web Audio), без сторонних файлов ----------
+// ---------- музыка: энергичный трек (≈124 уд/мин), синтезируется на лету через Web Audio, без сторонних файлов ----------
 async function synthMusic(dur = TOTAL, sr = 44100) {
   const oc = new OfflineAudioContext(2, Math.ceil(dur * sr), sr);
-  const BAR = 2.2, BEAT = BAR / 4, EIGHTH = BEAT / 2, hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
+  const BAR = 1.93, BEAT = BAR / 4, SIX = BEAT / 4, EIGHTH = BEAT / 2, hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
+  const C0 = [60, 64, 67, 72], G0 = [55, 59, 62, 67], A0 = [57, 60, 64, 69], F0 = [53, 57, 60, 65];
+  const CH = [C0, G0, A0, F0, C0, G0, A0, F0, A0, G0, C0], ROOT = [36, 31, 33, 29, 36, 31, 33, 29, 33, 31, 36], LAST = CH.length - 1, FT = LAST * BAR;
   let sd = 11; const r = () => { sd = (sd * 16807) % 2147483647; return (sd - 1) / 2147483646; };
-  const master = oc.createGain(); master.gain.setValueAtTime(0, 0); master.gain.linearRampToValueAtTime(.68, .4); master.gain.setValueAtTime(.68, dur - 1.0); master.gain.linearRampToValueAtTime(0, dur);
-  const comp = oc.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 3.5; comp.attack.value = .01; comp.release.value = .2; master.connect(comp); comp.connect(oc.destination);
-  // небольшая реверберация
-  const irLen = Math.floor(sr * 1.8), ir = oc.createBuffer(2, irLen, sr); for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < irLen; i++) d[i] = (r() * 2 - 1) * Math.pow(1 - i / irLen, 3); }
-  const verb = oc.createConvolver(); verb.buffer = ir; const vg = oc.createGain(); vg.gain.value = .35; verb.connect(vg); vg.connect(master);
-  const dly = oc.createDelay(1); dly.delayTime.value = EIGHTH * 1.5; const fb = oc.createGain(); fb.gain.value = .32; const dg = oc.createGain(); dg.gain.value = .35; dly.connect(fb); fb.connect(dly); dly.connect(dg); dg.connect(master); dg.connect(verb);
-  const noiseBuf = oc.createBuffer(1, sr * 2, sr); { const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = r() * 2 - 1; }
+  const master = oc.createGain(); master.gain.setValueAtTime(0, 0); master.gain.linearRampToValueAtTime(.72, .25); master.gain.setValueAtTime(.72, dur - 1.1); master.gain.linearRampToValueAtTime(0, dur);
+  const comp = oc.createDynamicsCompressor(); comp.threshold.value = -16; comp.knee.value = 8; comp.ratio.value = 4; comp.attack.value = .005; comp.release.value = .15; master.connect(comp); comp.connect(oc.destination);
+  const irLen = Math.floor(sr * 1.6), ir = oc.createBuffer(2, irLen, sr); for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < irLen; i++) d[i] = (r() * 2 - 1) * Math.pow(1 - i / irLen, 3); }
+  const verb = oc.createConvolver(); verb.buffer = ir; const vg = oc.createGain(); vg.gain.value = .3; verb.connect(vg); vg.connect(master);
+  const dly = oc.createDelay(1); dly.delayTime.value = SIX * 3; const fb = oc.createGain(); fb.gain.value = .3; const dg = oc.createGain(); dg.gain.value = .3; dly.connect(fb); fb.connect(dly); dly.connect(dg); dg.connect(master);
+  const noiseBuf = oc.createBuffer(1, sr * 3, sr); { const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = r() * 2 - 1; }
+  // шина пэда с «сайдчейном»: просаживается на каждую долю
+  const padBus = oc.createGain(); padBus.connect(master); padBus.connect(verb);
+  for (let t = BAR; t < FT; t += BEAT) { padBus.gain.setValueAtTime(.18, t); padBus.gain.linearRampToValueAtTime(1, t + BEAT * .85); }
+  padBus.gain.setValueAtTime(1, 0);
 
-  const env = (g, t, a, hold, rel, peak) => { g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + a); g.gain.setValueAtTime(peak, t + a + hold); g.gain.exponentialRampToValueAtTime(.0001, t + a + hold + rel); };
+  const adsr = (g, t, a, hold, rel, peak) => { g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + a); g.gain.setValueAtTime(peak, t + a + hold); g.gain.exponentialRampToValueAtTime(.0001, t + a + hold + rel); };
   const tone = (type, f, t, a, hold, rel, peak, dest, { lp = 0, det = 0 } = {}) => {
-    const o = oc.createOscillator(); o.type = type; o.frequency.value = f; o.detune.value = det; const g = oc.createGain(); env(g, t, a, hold, rel, peak);
-    let out = g; if (lp) { const fl = oc.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = lp; o.connect(fl); fl.connect(g); } else o.connect(g);
+    const o = oc.createOscillator(); o.type = type; o.frequency.value = f; o.detune.value = det; const g = oc.createGain(); adsr(g, t, a, hold, rel, peak);
+    if (lp) { const fl = oc.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = lp; o.connect(fl); fl.connect(g); } else o.connect(g);
     g.connect(dest); o.start(t); o.stop(t + a + hold + rel + .05);
   };
-  const noise = (t, len, type, f, peak, dest, decay = len) => { const n = oc.createBufferSource(); n.buffer = noiseBuf; const fl = oc.createBiquadFilter(); fl.type = type; fl.frequency.value = f; const g = oc.createGain(); g.gain.setValueAtTime(peak, t); g.gain.exponentialRampToValueAtTime(.0001, t + decay); n.connect(fl); fl.connect(g); g.connect(dest); n.start(t, r()); n.stop(t + len); };
-  const kick = (t, v = 1) => { const o = oc.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(46, t + .13); const g = oc.createGain(); g.gain.setValueAtTime(.95 * v, t); g.gain.exponentialRampToValueAtTime(.0001, t + .34); o.connect(g); g.connect(master); o.start(t); o.stop(t + .4); };
+  const noise = (t, len, type, f, peak, dest, decay = len) => { const n = oc.createBufferSource(); n.buffer = noiseBuf; const fl = oc.createBiquadFilter(); fl.type = type; fl.frequency.value = f; const g = oc.createGain(); g.gain.setValueAtTime(peak, t); g.gain.exponentialRampToValueAtTime(.0001, t + decay); n.connect(fl); fl.connect(g); g.connect(dest); n.start(t, r() * 1.5); n.stop(t + len); };
+  const kick = (t, v = 1) => { const o = oc.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(165, t); o.frequency.exponentialRampToValueAtTime(44, t + .11); const g = oc.createGain(); g.gain.setValueAtTime(1.0 * v, t); g.gain.exponentialRampToValueAtTime(.0001, t + .32); o.connect(g); g.connect(master); o.start(t); o.stop(t + .4); noise(t, .02, 'highpass', 2500, .25 * v, master, .015); };
+  const clap = (t, v = 1) => { [0, .011, .022].forEach((d, i) => noise(t + d, .2, 'bandpass', 1750, (i === 2 ? .38 : .22) * v, master, i === 2 ? .17 : .03)); tone('triangle', 190, t, .001, .02, .09, .12 * v, master); };
 
-  const C0 = [60, 64, 67, 72], G0 = [55, 59, 62, 67], A0 = [57, 60, 64, 69], F0 = [53, 57, 60, 65], CH = [C0, G0, A0, F0, C0, G0, A0, F0, G0, C0], ROOT = [36, 31, 33, 29, 36, 31, 33, 29, 31, 36], LAST = CH.length - 1;
-  for (let b = 0; b * BAR < dur; b++) {
-    const t0 = b * BAR, ch = CH[Math.min(b, LAST)], root = ROOT[Math.min(b, LAST)], last = b >= LAST;
-    // пэд
-    ch.slice(0, 3).forEach((m) => { tone('sawtooth', hz(m), t0, .5, BAR - .6, .9, .035, verb, { lp: 1400, det: -7 }); tone('sawtooth', hz(m), t0, .5, BAR - .6, .9, .035, master, { lp: 1400, det: 7 }); });
-    // арпеджио восьмыми
-    const order = [0, 1, 2, 3, 2, 1, 2, 1];
-    for (let k = 0; k < 8; k++) { if (b === 0 && k < 2) continue; if (last && k > 3) break; const m = ch[order[k]] + (k % 4 === 3 ? 12 : 0); const t = t0 + k * EIGHTH; tone('triangle', hz(m + 12), t, .004, .02, .28, .11, dly, { lp: 3800 }); tone('triangle', hz(m + 12), t, .004, .02, .28, .06, master, { lp: 3800 }); }
-    if (b >= 1 && !last) { // бас
-      [0, 1.5, 2, 3.5].forEach((bt, i) => tone('sine', hz(root + (i === 2 ? 12 : 0)), t0 + bt * BEAT, .005, .12, .32, .42, master));
-      for (let k = 0; k < 4; k++) kick(t0 + k * BEAT, k === 0 ? 1 : .82); // кик на каждую долю
-      for (let k = 0; k < 8; k++) noise(t0 + k * EIGHTH + (b >= 3 ? 0 : EIGHTH * (k % 2 ? 0 : 1) ) * 0, .08, 'highpass', 7000, k % 2 ? .1 : .05, master, .06); // хэт
-      if (b >= 3) [1, 3].forEach((bt) => noise(t0 + bt * BEAT, .22, 'bandpass', 1900, .26, master, .16)); // клэп
+  for (let b = 0; b <= LAST; b++) {
+    const t0 = b * BAR, ch = CH[b], root = ROOT[b], last = b === LAST;
+    if (last) continue; // финальный бар — отдельно ниже
+    // пэд (в шину с сайдчейном)
+    ch.slice(0, 3).forEach((m) => { tone('sawtooth', hz(m), t0, .15, BAR - .3, .5, .03, padBus, { lp: 1900, det: -9 }); tone('sawtooth', hz(m), t0, .15, BAR - .3, .5, .03, padBus, { lp: 1900, det: 9 }); });
+    // арпеджио шестнадцатыми, с октавой вверх на второй половине такта
+    const order = [0, 1, 2, 3, 2, 1, 3, 2];
+    for (let k = 0; k < 16; k++) {
+      if (b === 0 && k < 4) continue; const m = ch[order[k % 8]] + (k >= 8 || b >= 4 ? 12 : 0) + (b >= 8 && k % 4 === 3 ? 12 : 0), t = t0 + k * SIX, v = b >= 4 ? .085 : .06;
+      tone('sawtooth', hz(m), t, .002, .015, .12, v, dly, { lp: 4200 }); tone('sawtooth', hz(m), t, .002, .015, .12, v * .55, master, { lp: 3600 });
     }
-    if (last) { kick(t0, 1); [0, 1, 2].forEach((i) => tone('triangle', hz(ch[i] + 12), t0, .003, .05, 1.8, .16, verb, { lp: 4500 })); tone('sine', hz(36), t0, .005, .2, 1.4, .5, master); noise(t0, 1.6, 'highpass', 5000, .12, verb, 1.4); }
+    // ударные: со 2-го такта
+    if (b >= 1) {
+      for (let k = 0; k < 4; k++) kick(t0 + k * BEAT, k === 0 ? 1 : .88);
+      [1, 3].forEach((k) => clap(t0 + k * BEAT, b >= 8 ? 1.15 : 1));
+      for (let k = 0; k < 16; k++) noise(t0 + k * SIX, .05, 'highpass', 7500, k % 4 === 2 ? .12 : k % 2 ? .05 : .03, master, .045); // закрытый хэт
+      for (let k = 0; k < 4; k++) noise(t0 + k * BEAT + EIGHTH, .16, 'highpass', 6500, .1, master, .13); // открытый хэт на «и»
+      // бас на «и» каждой доли
+      for (let k = 0; k < 4; k++) { const t = t0 + k * BEAT + EIGHTH, m = root + (k === 2 ? 12 : 0); tone('sine', hz(m), t, .004, .1, .2, .42, master); tone('sawtooth', hz(m), t, .004, .06, .16, .1, master, { lp: 520 }); }
+      // нарастание перед дропом: рулон малого барабана
+      if (b === LAST - 1) for (let k = 0; k < 16; k++) { if (k < 8) continue; const v = .12 + .22 * ((k - 8) / 8); noise(t0 + k * SIX, .1, 'bandpass', 2300, v, master, .08); }
+    }
   }
-  // райзер перед финальным аккордом
-  { const t = LAST * BAR - 1.0, o = oc.createBufferSource(); o.buffer = noiseBuf; o.loop = true; const fl = oc.createBiquadFilter(); fl.type = 'bandpass'; fl.Q.value = 1.2; fl.frequency.setValueAtTime(300, t); fl.frequency.exponentialRampToValueAtTime(7000, t + 1.0); const g = oc.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.22, t + .95); g.gain.linearRampToValueAtTime(0, t + 1.02); o.connect(fl); fl.connect(g); g.connect(master); o.start(t); o.stop(t + 1.1); }
-  // «хлопки» фейерверка и искры
+  // райзер в предпоследнем такте
+  { const t = (LAST - 1) * BAR, o = oc.createBufferSource(); o.buffer = noiseBuf; o.loop = true; const fl = oc.createBiquadFilter(); fl.type = 'bandpass'; fl.Q.value = 1.4; fl.frequency.setValueAtTime(250, t); fl.frequency.exponentialRampToValueAtTime(9000, t + BAR); const g = oc.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.26, t + BAR - .05); g.gain.linearRampToValueAtTime(0, t + BAR); o.connect(fl); fl.connect(g); g.connect(master); o.start(t); o.stop(t + BAR + .1);
+    const sw = oc.createOscillator(); sw.type = 'sawtooth'; sw.frequency.setValueAtTime(220, t); sw.frequency.exponentialRampToValueAtTime(1760, t + BAR); const sg = oc.createGain(); sg.gain.setValueAtTime(0, t); sg.gain.linearRampToValueAtTime(.05, t + BAR - .05); sg.gain.linearRampToValueAtTime(0, t + BAR); const sf = oc.createBiquadFilter(); sf.type = 'lowpass'; sf.frequency.value = 2400; sw.connect(sf); sf.connect(sg); sg.connect(master); sw.start(t); sw.stop(t + BAR + .1); }
+  // дроп: удар, суб, тарелка и аккорд
+  { const t = FT; kick(t, 1.1); tone('sine', hz(36), t, .004, .3, 1.9, .55, master); noise(t, 2.4, 'highpass', 4200, .22, verb, 2.2); noise(t, 1.2, 'bandpass', 900, .18, master, .5);
+    [60, 64, 67, 72, 76].forEach((m) => { tone('sawtooth', hz(m), t, .004, .35, 1.8, .06, verb, { lp: 3600, det: -8 }); tone('sawtooth', hz(m), t, .004, .35, 1.8, .06, master, { lp: 3600, det: 8 }); });
+    for (let k = 0; k < 8; k++) tone('triangle', hz([72, 76, 79, 84][k % 4] + (k > 3 ? 12 : 0)), t + k * SIX * 1.5, .002, .02, .5, .08, dly, { lp: 5000 }); }
+  // хлопки фейерверка и искры
   [[9.3, 1], [9.55, .8], [9.8, .8]].map(([b, v]) => [(b + SHIFT + HD) * S, v]).forEach(([t, v]) => {
-    noise(t, .4, 'highpass', 2500, .3 * v, master, .3); const o = oc.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(700, t); o.frequency.exponentialRampToValueAtTime(140, t + .2); const g = oc.createGain(); g.gain.setValueAtTime(.3 * v, t); g.gain.exponentialRampToValueAtTime(.0001, t + .25); o.connect(g); g.connect(master); o.start(t); o.stop(t + .3);
-    for (let i = 0; i < 9; i++) tone('sine', hz(84 + [0, 2, 4, 7, 9, 12][(r() * 6) | 0]), t + .05 + r() * .6, .002, .01, .35, .045, verb);
+    noise(t, .4, 'highpass', 2500, .32 * v, master, .3); const o = oc.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(700, t); o.frequency.exponentialRampToValueAtTime(140, t + .2); const g = oc.createGain(); g.gain.setValueAtTime(.32 * v, t); g.gain.exponentialRampToValueAtTime(.0001, t + .25); o.connect(g); g.connect(master); o.start(t); o.stop(t + .3);
+    for (let i = 0; i < 10; i++) tone('sine', hz(84 + [0, 2, 4, 7, 9, 12][(r() * 6) | 0]), t + .05 + r() * .7, .002, .01, .35, .05, verb);
   });
-  // «пшик» при смене сцен
-  [1.9, 4.5, 9.2, 12.0, 13.8].forEach((b) => { const t = b * S; noise(t - .15, .5, 'bandpass', 2600, .09, verb, .45); });
+  // лёгкие «пшик» при смене сцен
+  [1.9, 4.5, 9.2, 12.0].forEach((b) => { const t = b * S; noise(t - .18, .6, 'bandpass', 3000, .12, verb, .5); });
   return oc.startRendering();
 }
 window.musicStats = async () => { const b = await synthMusic(); const d = b.getChannelData(0); let pk = 0, sq = 0; for (let i = 0; i < d.length; i++) { pk = Math.max(pk, Math.abs(d[i])); sq += d[i] * d[i]; } return { dur: b.duration, peak: pk, rms: Math.sqrt(sq / d.length) }; };

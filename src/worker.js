@@ -112,7 +112,7 @@ const TENANT_DDL = {
   shares: 'CREATE TABLE shares (token TEXT PRIMARY KEY, owner_id TEXT NOT NULL, student_id TEXT NOT NULL, opts TEXT, created_at TEXT NOT NULL, UNIQUE (owner_id, student_id))',
   review_links: 'CREATE TABLE review_links (token TEXT PRIMARY KEY, owner_id TEXT NOT NULL, student_id TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE (owner_id, student_id))',
 };
-const FILES_DDL = 'CREATE TABLE files (id TEXT PRIMARY KEY, owner_id TEXT, type TEXT NOT NULL, size INTEGER NOT NULL)';
+const FILES_DDL = 'CREATE TABLE files (id TEXT PRIMARY KEY, owner_id TEXT, type TEXT NOT NULL, size INTEGER NOT NULL, r2 INTEGER NOT NULL DEFAULT 0)'; // r2 = 1: файл лежит в R2, 0 — старым способом, кусками в D1
 
 async function tableCols(env, t) { const { results } = await env.DB.prepare(`PRAGMA table_info(${t})`).all(); return results.map((r) => r.name); }
 
@@ -150,6 +150,10 @@ async function ensureSchema(env) {
     try { await migrateTenancy(env); }
     catch (e) { if (!(await env.DB.prepare("SELECT v FROM meta WHERE k = 'tenancy'").first())) throw e; } // параллельный запрос мог уже всё сделать
   }
+  if (!(await env.DB.prepare("SELECT v FROM meta WHERE k = 'files_r2'").first())) {
+    if (!(await tableCols(env, 'files')).includes('r2')) await env.DB.prepare('ALTER TABLE files ADD COLUMN r2 INTEGER NOT NULL DEFAULT 0').run();
+    await env.DB.prepare("INSERT OR IGNORE INTO meta (k, v) VALUES ('files_r2', '1')").run();
+  }
   // Один раз откатываем оценки, сохранённые в десятибалльной шкале (старые данные).
   if (!(await env.DB.prepare("SELECT v FROM meta WHERE k = 'scale5_restored'").first())) {
     const { results } = await env.DB.prepare('SELECT owner_id, data FROM students').all(), stmts = [];
@@ -176,10 +180,28 @@ async function placeInWorkspace(env, owner, d) {
 const wsOut = (r) => ({ id: r.id, name: r.name, createdAt: r.created_at });
 const wsName = (v) => (typeof v === 'string' && v.trim().length >= 1 && v.trim().length <= 60 ? v.trim() : null);
 
-const deleteFile = (env, owner, id) => env.DB.batch([
-  env.DB.prepare('DELETE FROM file_chunks WHERE id = ?1 AND EXISTS (SELECT 1 FROM files WHERE id = ?1 AND owner_id = ?2)').bind(id, owner),
-  env.DB.prepare('DELETE FROM files WHERE id = ?1 AND owner_id = ?2').bind(id, owner),
-]);
+// Файлы лежат в R2 (ключ «владелец/id»), в D1 остаётся только описание. Если привязки R2 нет, работает старый путь: куски base64 в D1.
+const r2Key = (owner, id) => `${owner}/${id}`;
+async function readLegacy(env, id, size) {
+  const { results } = await env.DB.prepare('SELECT data FROM file_chunks WHERE id = ?1 ORDER BY n').bind(id).all();
+  const out = new Uint8Array(size); let off = 0;
+  for (const row of results) { const part = fromB64(row.data); out.set(part, off); off += part.length; }
+  return out;
+}
+// Переносит старый файл из D1 в R2 (читает куски, кладёт объект, помечает, удаляет куски).
+async function moveToR2(env, owner, id, meta, bytes) {
+  await env.FILES.put(r2Key(owner, id), bytes, { httpMetadata: { contentType: meta.type } });
+  await env.DB.batch([env.DB.prepare('UPDATE files SET r2 = 1 WHERE id = ?1 AND owner_id = ?2').bind(id, owner), env.DB.prepare('DELETE FROM file_chunks WHERE id = ?1').bind(id)]);
+}
+async function deleteFile(env, owner, id) {
+  const f = await env.DB.prepare('SELECT r2 FROM files WHERE id = ?1 AND owner_id = ?2').bind(id, owner).first();
+  if (!f) return;
+  if (f.r2 && env.FILES) await env.FILES.delete(r2Key(owner, id));
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM file_chunks WHERE id = ?1').bind(id),
+    env.DB.prepare('DELETE FROM files WHERE id = ?1 AND owner_id = ?2').bind(id, owner),
+  ]);
+}
 
 const validDoc = (d) => d && typeof d === 'object' && !Array.isArray(d) && typeof d.id === 'string' && ID_RE.test(d.id);
 const upsert = (env, owner, d) => env.DB.prepare('INSERT INTO students (owner_id, id, data, updated_at) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(owner_id, id) DO UPDATE SET data = ?3, updated_at = ?4')
@@ -352,6 +374,10 @@ async function route(req, env, url) {
     if (user.role === 'admin') return fail(403, 'Аккаунт администратора удалить нельзя');
     const { confirm } = await readJson(req, 1024);
     if (typeof confirm !== 'string' || confirm.trim().toLowerCase() !== user.email) return fail(400, 'Введите свою почту для подтверждения');
+    if (env.FILES) { // сначала стираем объекты ментора в R2
+      let cursor;
+      do { const l = await env.FILES.list({ prefix: `${owner}/`, cursor, limit: 1000 }); if (l.objects.length) await env.FILES.delete(l.objects.map((o) => o.key)); cursor = l.truncated ? l.cursor : undefined; } while (cursor);
+    }
     await env.DB.batch([
       env.DB.prepare('DELETE FROM file_chunks WHERE id IN (SELECT id FROM files WHERE owner_id = ?1)').bind(owner),
       env.DB.prepare('DELETE FROM files WHERE owner_id = ?1').bind(owner),
@@ -382,6 +408,15 @@ async function route(req, env, url) {
     if (user.role !== 'admin') return fail(403, 'Недостаточно прав');
     await env.DB.prepare('DELETE FROM invites WHERE code = ?1 AND used_by IS NULL').bind(iv[1]).run();
     return json({ ok: true });
+  }
+
+  // перенос старых файлов из D1 в R2 пачками (только администратор)
+  if (p === '/api/admin/migrate-files' && m === 'POST') {
+    if (user.role !== 'admin') return fail(403, 'Недостаточно прав');
+    if (!env.FILES) return fail(409, 'Хранилище R2 не подключено');
+    const { results } = await env.DB.prepare('SELECT id, owner_id, type, size FROM files WHERE r2 = 0 ORDER BY size LIMIT 3').all();
+    for (const f of results) await moveToR2(env, f.owner_id, f.id, f, await readLegacy(env, f.id, f.size));
+    return json({ moved: results.length, left: (await env.DB.prepare('SELECT COUNT(*) AS n FROM files WHERE r2 = 0').first()).n });
   }
 
   if (p === '/api/workspaces' && m === 'GET') {
@@ -501,22 +536,35 @@ async function route(req, env, url) {
       if (cur && cur.owner_id !== owner) return fail(403, 'Недостаточно прав'); // чужой файл перезаписывать нельзя
       const used = (await env.DB.prepare('SELECT COALESCE(SUM(size), 0) AS n FROM files WHERE owner_id = ?1').bind(owner).first()).n - (cur?.size || 0);
       if (used + bytes.length > maxStorage(env, user)) return fail(413, 'Превышен лимит хранилища');
+      const type = req.headers.get('content-type') || 'application/octet-stream';
+      if (env.FILES) {
+        await env.FILES.put(r2Key(owner, key), bytes, { httpMetadata: { contentType: type } });
+        await env.DB.batch([
+          env.DB.prepare('DELETE FROM file_chunks WHERE id = ?1').bind(key),
+          env.DB.prepare('INSERT INTO files (id, owner_id, type, size, r2) VALUES (?1, ?2, ?3, ?4, 1) ON CONFLICT(id) DO UPDATE SET type = ?3, size = ?4, r2 = 1').bind(key, owner, type, bytes.length),
+        ]);
+        return json({ ok: true });
+      }
       const stmts = [
         env.DB.prepare('DELETE FROM file_chunks WHERE id = ?1').bind(key),
-        env.DB.prepare('INSERT INTO files (id, owner_id, type, size) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(id) DO UPDATE SET type = ?3, size = ?4')
-          .bind(key, owner, req.headers.get('content-type') || 'application/octet-stream', bytes.length),
+        env.DB.prepare('INSERT INTO files (id, owner_id, type, size, r2) VALUES (?1, ?2, ?3, ?4, 0) ON CONFLICT(id) DO UPDATE SET type = ?3, size = ?4, r2 = 0').bind(key, owner, type, bytes.length),
       ];
       for (let n = 0, off = 0; off < bytes.length; n++, off += CHUNK) stmts.push(env.DB.prepare('INSERT INTO file_chunks (id, n, data) VALUES (?1, ?2, ?3)').bind(key, n, toB64(bytes.subarray(off, off + CHUNK))));
       for (let i = 0; i < stmts.length; i += 40) await env.DB.batch(stmts.slice(i, i + 40));
       return json({ ok: true });
     }
     if (m === 'GET') {
-      const meta = await env.DB.prepare('SELECT type, size FROM files WHERE id = ?1 AND owner_id = ?2').bind(key, owner).first();
+      const meta = await env.DB.prepare('SELECT type, size, r2 FROM files WHERE id = ?1 AND owner_id = ?2').bind(key, owner).first();
       if (!meta) return fail(404, 'Файл не найден');
-      const { results } = await env.DB.prepare('SELECT data FROM file_chunks WHERE id = ?1 ORDER BY n').bind(key).all();
-      const out = new Uint8Array(meta.size); let off = 0;
-      for (const row of results) { const part = fromB64(row.data); out.set(part, off); off += part.length; }
-      return new Response(out, { headers: { 'content-type': meta.type, 'content-disposition': 'attachment', 'x-content-type-options': 'nosniff', 'cache-control': 'no-store' } });
+      const headers = { 'content-type': meta.type, 'content-disposition': 'attachment', 'x-content-type-options': 'nosniff', 'cache-control': 'no-store' };
+      if (meta.r2) {
+        const obj = env.FILES ? await env.FILES.get(r2Key(owner, key)) : null;
+        if (!obj) return fail(404, 'Файл не найден');
+        return new Response(obj.body, { headers });
+      }
+      const bytes = await readLegacy(env, key, meta.size);
+      if (env.FILES) { try { await moveToR2(env, owner, key, meta, bytes); } catch (e) { console.error(e); } } // старый файл при первом чтении переезжает в R2
+      return new Response(bytes, { headers });
     }
   }
   return fail(404, 'Не найдено');

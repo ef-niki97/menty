@@ -9,6 +9,8 @@ const COOKIE = 'menty_session';
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const TOKEN_RE = /^[A-Za-z0-9_-]{10,43}$/; // новые ссылки — 10 символов, старые — 43
 
+const SKILL_IDS = ['visual', 'typo', 'ux', 'proto', 'ds', 'product', 'comm', 'pitch', 'feedback', 'time', 'team', 'prompt', 'ai_research', 'ai_visual', 'ai_proto', 'ai_flow'];
+
 const enc = new TextEncoder();
 const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers } });
 const fail = (status, error) => json({ error }, status);
@@ -97,6 +99,26 @@ async function route(req, env, url) {
     return json(student, 200, { 'x-robots-tag': 'noindex, nofollow' });
   }
 
+  // Самооценка менти по публичной ссылке: единственная запись, доступная без входа. Принимаем только оценки навыков 0–5.
+  const self = p.match(/^\/api\/share\/([^/]+)\/self$/);
+  if (self && m === 'POST') {
+    if (!TOKEN_RE.test(self[1])) return fail(404, 'Ссылка недействительна');
+    const { scores } = await readJson(req, 4096), clean = {};
+    for (const k of SKILL_IDS) {
+      const v = scores?.[k]; if (v === undefined) continue;
+      if (!Number.isInteger(v) || v < 0 || v > 5) return fail(400, 'Некорректные оценки');
+      clean[k] = v;
+    }
+    if (!Object.values(clean).some((v) => v > 0)) return fail(400, 'Оцените хотя бы один навык');
+    await ensureSchema(env);
+    const row = await env.DB.prepare('SELECT s.data FROM shares h JOIN students s ON s.id = h.student_id WHERE h.token = ?1').bind(self[1]).first();
+    if (!row) return fail(404, 'Ссылка недействительна');
+    const doc = JSON.parse(row.data);
+    doc.selfAssessments = [...(Array.isArray(doc.selfAssessments) ? doc.selfAssessments : []), { id: newToken(), date: new Date().toISOString(), scores: clean }].slice(-20);
+    await upsert(env, doc).run();
+    return json({ ok: true });
+  }
+
   if (!(await isAuthed(req, env))) return fail(401, 'Требуется вход');
   if (p === '/api/me' && m === 'GET') return json({ email: env.ADMIN_EMAIL });
 
@@ -134,6 +156,9 @@ async function route(req, env, url) {
     const id = r[1];
     if (m === 'PUT') {
       const d = await readJson(req); if (!validDoc(d) || d.id !== id) return fail(400, 'Некорректные данные');
+      // Самооценки пишет менти через публичную ссылку — устаревший кэш ментора их не затирает.
+      const cur = await env.DB.prepare('SELECT data FROM students WHERE id = ?1').bind(id).first();
+      if (cur) { const sa = JSON.parse(cur.data).selfAssessments; if (sa) d.selfAssessments = sa; else delete d.selfAssessments; }
       await upsert(env, d).run(); return json({ ok: true });
     }
     if (m === 'DELETE') {

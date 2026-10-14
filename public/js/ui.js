@@ -9,6 +9,9 @@ export const fmtMoney = (n, cur) => n ? `${Number(n).toLocaleString('ru-RU')} ${
 export const fmtSize = (b) => b > 1048576 ? `${(b / 1048576).toFixed(1)} МБ` : `${Math.max(1, Math.round(b / 1024))} КБ`;
 export const today = () => new Date().toISOString().slice(0, 10);
 export const workLine = (s) => [s.role, s.jobless ? 'В поисках работы' : s.company].filter(Boolean).join(' · ') || 'Место работы не указано';
+const TR = { а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'kh', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'shch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya' };
+// «Чигвинцев» → «chigvintsev»: для читаемых адресов вида /student/chigvintsev
+export const slugify = (t) => String(t || '').toLowerCase().replace(/[а-яё]/g, (c) => TR[c] ?? '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 export const fullName = (s) => `${s.firstName} ${s.lastName}`.trim();
 
 // Принимает только http(s)-ссылки, чтобы нельзя было подсунуть javascript:

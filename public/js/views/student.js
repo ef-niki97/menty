@@ -4,10 +4,12 @@ import { esc, icon, avatar, fileToAvatar, fullName, workLine, fmtDate, fmtMoney,
 import { radar, radarLegend, scoreOrb } from '../radar.js';
 import { skillsEditorHtml, bindSkillsEditor } from '../skills-editor.js';
 import { datePicker } from '../datepicker.js';
-import { total, latest, growth, fmt1, signed } from '../metrics.js';
+import { total, latest, growth, fmt1, signed, selfLatest, blend } from '../metrics.js';
 
 const MAX_FILE = 10 * 1024 * 1024;
 let cmp = { id: '', base: '' }; // с какой оценкой сравниваем текущую
+let view = 'mentor'; // чья оценка на диаграмме: mentor | self | avg
+let last = null; // последний показанный профиль — чтобы переключать вид без перезагрузки
 const sid = (el) => el.closest('[data-sid]').dataset.sid;
 const rerender = () => window.__rerender();
 const notFound = () => ({ shell: 'app', nav: 'students', html: `<div class="page empty view" style="padding-top:96px">${icon('person_off', 'ol')}<p>Ученик не найден</p><a class="pill dark" href="/students">К списку</a></div>` });
@@ -22,15 +24,22 @@ function skillRows(now, base) {
     }).join('')}</div>`).join('');
 }
 
+const VIEWS = [['mentor', 'Ментор'], ['self', 'Менти'], ['avg', 'Среднее']];
 function competenciesCard(s, now, base, ro) {
+  const me = selfLatest(s), mode = me ? view : 'mentor';
+  const cur = mode === 'self' ? me : mode === 'avg' ? { date: me.date, scores: blend(now.scores, me.scores) } : now;
+  const bs = mode === 'mentor' ? base : null;
   const opts = s.assessments.filter((a) => a.id !== now.id);
-  return `<div class="card"><div class="card-h"><h2 class="d-s">Компетенции</h2>
-      ${ro ? '' : `<div class="row">${opts.length ? `<div class="selw">${icon('expand_more', 'trail')}<select class="field sm" id="cmp-sel" aria-label="Сравнить с"><option value="">Без сравнения</option>${opts.map((a) => `<option value="${a.id}" ${base?.id === a.id ? 'selected' : ''}>Было: ${fmtDate(a.date)}</option>`).join('')}</select></div>` : ''}
-      <a class="pill dark sm" href="/student/${s.id}/assess">${icon('add_chart')} Новая оценка</a></div>`}</div>
-    ${radar([...(base ? [{ scores: base.scores, kind: 'prev' }] : []), { scores: now.scores, kind: 'now' }])}
-    ${radarLegend(!!base, base ? `Было · ${fmtDate(base.date)}` : '', `${base ? 'Стало' : 'Оценка'} · ${fmtDate(now.date)}`)}
-    ${scoreOrb(now.scores, base?.scores, { animate: true })}
-    <details class="more"><summary>Все навыки подробно ${icon('expand_more')}</summary>${skillRows(now, base)}</details></div>`;
+  const nowLabel = mode === 'self' ? `Самооценка менти · ${fmtDate(cur.date)}` : mode === 'avg' ? 'Среднее: ментор и менти' : `${bs ? 'Стало' : 'Оценка'} · ${fmtDate(now.date)}`;
+  return `<div class="card" id="comp-card"><div class="card-h"><h2 class="d-s">Компетенции</h2>
+      <div class="row">${me ? `<div class="seg" role="group" aria-label="Чья оценка">${VIEWS.map(([v, l]) => `<button type="button" class="${mode === v ? 'on' : ''}" data-act="st-view" data-v="${v}">${l}</button>`).join('')}</div>` : ''}
+      ${ro || mode !== 'mentor' ? '' : `${opts.length ? `<div class="selw">${icon('expand_more', 'trail')}<select class="field sm" id="cmp-sel" aria-label="Сравнить с"><option value="">Без сравнения</option>${opts.map((a) => `<option value="${a.id}" ${base?.id === a.id ? 'selected' : ''}>Было: ${fmtDate(a.date)}</option>`).join('')}</select></div>` : ''}`}
+      ${ro ? '' : `<a class="pill dark sm" href="/student/${s.id}/assess">${icon('add_chart')} Новая оценка</a>`}</div></div>
+    ${me ? `<p class="small" style="margin:-6px 0 10px">Менти оценил себя ${fmtDate(me.date)}</p>` : ''}
+    ${radar([...(bs ? [{ scores: bs.scores, kind: 'prev' }] : []), { scores: cur.scores, kind: 'now' }])}
+    ${radarLegend(!!bs, bs ? `Было · ${fmtDate(bs.date)}` : '', nowLabel)}
+    ${scoreOrb(cur.scores, bs?.scores, { animate: true })}
+    <details class="more"><summary>Все навыки подробно ${icon('expand_more')}</summary>${skillRows(cur, bs)}</details></div>`;
 }
 
 function historyCard(s, now, ro) {
@@ -77,12 +86,13 @@ const privateCard = (s) => `<div class="card flat"><div class="card-h"><h2 class
 // ---------- страница ученика ----------
 // Общая вёрстка для кабинета ментора и для публичной ссылки (ro = только просмотр: без кнопок, форм и личной заметки).
 export function studentPage(s, base, ro = false) {
+  last = { s, base, ro }; const token = typeof ro === 'string' ? ro : ''; // для публичной страницы ro — это токен ссылки
   const now = latest(s), st = STATUSES[s.status] || STATUSES.active, g = growth(s);
   const av = ro ? avatar(s, 'xl') : `<label class="av-edit" for="av-up" title="Сменить фото">${avatar(s, 'xl')}<span class="av-cam">${icon('photo_camera')}</span></label><input id="av-up" type="file" accept="image/*" hidden>`;
   return `<div class="hero"><div class="hero-l">${av}<div><h1 class="d-m">${esc(fullName(s))}</h1>
       <div class="row wrap" style="margin:10px 0 6px"><span class="chip on">${esc(s.grade)}</span><span class="chip ${st.tone}">${st.label}</span><span class="chip">${fmt1(total(now.scores))}/5 ${g === null ? '' : dChip(g)}</span></div>
       <div class="muted">${esc(workLine(s))}</div></div></div>
-      ${ro ? '' : `<div class="row"><button class="pill ghost" data-act="st-share">${icon('ios_share')} Поделиться</button><button class="pill ghost" data-act="st-edit">${icon('edit')} Редактировать</button></div>`}</div>
+      ${ro ? `<div class="row"><a class="pill dark" href="/s/${esc(token)}/assess">${icon('fact_check')} Оценить компетенции</a></div>` : `<div class="row"><button class="pill ghost" data-act="st-share">${icon('ios_share')} Поделиться</button><button class="pill ghost" data-act="st-edit">${icon('edit')} Редактировать</button></div>`}</div>
     <div class="detail"><div class="col-main">${competenciesCard(s, now, base, ro)}${historyCard(s, now, ro)}${sessionsCard(s, ro)}</div>
       <div class="col-side">${goalCard(s, ro)}${portfolioCard(s, ro)}${cvCard(s, ro)}${tasksCard(s, ro)}${ro ? '' : privateCard(s)}</div></div>`;
 }
@@ -99,7 +109,7 @@ export function studentView({ id }) {
       <a class="back" href="/students">${icon('arrow_back')} Ученики</a>
       ${studentPage(s, base)}</div>`,
     mount(root) {
-      root.querySelector('#cmp-sel')?.addEventListener('change', (e) => { cmp.base = e.target.value; rerender(); });
+      store.refreshSelf(id).then((changed) => { if (changed && location.pathname === `/student/${id}`) rerender(); }).catch(() => {});
       root.querySelector('#private-note').addEventListener('change', (e) => { store.updateStudent(id, { privateNote: e.target.value.trim() }); toast('Заметка сохранена'); });
       root.querySelector('#task-form').addEventListener('submit', (e) => { e.preventDefault(); const t = new FormData(e.target).get('text'); if (t.trim()) { store.addTask(id, t); rerender(); } });
       root.querySelector('#session-form').addEventListener('submit', (e) => { e.preventDefault(); const f = new FormData(e.target); store.addSession(id, { date: f.get('date'), text: f.get('text') }); toast('Запись добавлена'); rerender(); });
@@ -115,6 +125,11 @@ export function studentView({ id }) {
   };
 }
 
+document.addEventListener('change', (e) => { if (e.target.id === 'cmp-sel') { cmp.base = e.target.value; rerender(); } });
+ACT['st-view'] = (el) => {
+  view = el.dataset.v; const card = document.getElementById('comp-card'); if (!card || !last) return;
+  const { s, base, ro } = last; card.outerHTML = competenciesCard(s, latest(s), base, ro);
+};
 ACT['st-cmp'] = (el) => { cmp.base = el.dataset.id; rerender(); };
 ACT['st-task'] = (el) => { store.toggleTask(sid(el), el.dataset.id); rerender(); };
 ACT['st-task-del'] = (el) => { store.removeTask(sid(el), el.dataset.id); rerender(); };
@@ -138,13 +153,13 @@ ACT['st-add-pf'] = (el) => {
 };
 ACT['st-edit'] = (el) => {
   const id = sid(el), s = store.getStudent(id), g = s.goal;
-  const f = (label, name, v, ph = '', type = 'text') => `<div><label class="lbl">${label}</label><input class="field" name="${name}" type="${type}" value="${esc(v)}" placeholder="${esc(ph)}" autocomplete="off"></div>`;
+  const f = (label, name, v, ph = '', type = 'text', dis = false) => `<div><label class="lbl">${label}</label><input class="field" ${dis ? 'disabled' : ''} name="${name}" type="${type}" value="${esc(v)}" placeholder="${esc(ph)}" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other"></div>`;
   const sel = (label, name, opts, cur) => `<div><label class="lbl">${label}</label><div class="selw">${icon('expand_more', 'trail')}<select class="field" name="${name}">${opts.map(([v, l]) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div></div>`;
   openModal(`<h2 class="d-s" style="margin-bottom:20px">Редактировать ученика</h2><form class="col" id="ed-form">
     ${s.avatar ? `<div class="row">${avatar(s, 'lg')}<button type="button" class="pill ghost sm" id="ed-av-del">Убрать фото</button></div>` : ''}
     <div class="grid g2">${f('Имя', 'firstName', s.firstName)}${f('Фамилия', 'lastName', s.lastName)}</div>
     <div class="grid g2">${sel('Грейд', 'grade', GRADES.map((x) => [x, x]), s.grade)}${sel('Статус', 'status', Object.entries(STATUSES).map(([k, v]) => [k, v.label]), s.status)}</div>
-    <div class="grid g2"><div>${f('Компания', 'company', s.company).replace('<input', `<input ${s.jobless ? 'disabled' : ''}`)}<label class="chk"><input type="checkbox" name="jobless" ${s.jobless ? 'checked' : ''}><span>Сейчас без работы</span></label></div>${f('Должность', 'role', s.role)}</div>
+    <div class="grid g2"><div>${f('Компания', 'company', s.company, '', 'text', s.jobless)}<label class="chk"><input type="checkbox" name="jobless" ${s.jobless ? 'checked' : ''}><span>Сейчас без работы</span></label></div>${f('Должность', 'role', s.role, '', 'text', s.jobless)}</div>
     <div class="divider" style="margin:4px 0"></div>
     ${f('Целевая должность', 'targetRole', g.position)}${f('Целевая компания или направление', 'targetCompany', g.company)}
     <div class="grid g3">${f('Ожидаемая зарплата', 'salary', g.salary ?? '', '150000', 'number')}${sel('Валюта', 'currency', CURRENCIES.map((x) => [x, x]), g.currency)}${sel('Срок', 'horizon', HORIZONS, g.horizon)}</div>
@@ -153,11 +168,11 @@ ACT['st-edit'] = (el) => {
     m.querySelector('#ed-form').addEventListener('submit', (e) => {
       e.preventDefault(); const d = Object.fromEntries(new FormData(e.target));
       if (!d.firstName.trim() || !d.lastName.trim()) { toast('Имя и фамилия обязательны'); return; }
-      store.updateStudent(id, { firstName: d.firstName.trim(), lastName: d.lastName.trim(), grade: d.grade, status: d.status, jobless: !!d.jobless, company: d.jobless ? '' : d.company.trim(), role: d.role.trim(),
+      store.updateStudent(id, { firstName: d.firstName.trim(), lastName: d.lastName.trim(), grade: d.grade, status: d.status, jobless: !!d.jobless, company: d.jobless ? '' : d.company.trim(), role: d.jobless ? '' : d.role.trim(),
         goal: { position: d.targetRole.trim(), company: d.targetCompany.trim(), salary: d.salary ? Number(d.salary) : null, currency: d.currency, horizon: d.horizon } });
       close(); toast('Сохранено'); rerender();
     });
-    m.querySelector('[name=jobless]').addEventListener('change', (e) => { const c = m.querySelector('[name=company]'); c.disabled = e.target.checked; if (e.target.checked) c.value = ''; });
+    m.querySelector('[name=jobless]').addEventListener('change', (e) => { for (const n of ['company', 'role']) { const c = m.querySelector(`[name=${n}]`); c.disabled = e.target.checked; if (e.target.checked) c.value = ''; } });
     m.querySelector('#ed-av-del')?.addEventListener('click', () => { store.updateStudent(id, { avatar: '' }); close(); toast('Фото убрано'); rerender(); });
     m.querySelector('#ed-del').addEventListener('click', async () => {
       if (!confirm(`Удалить ${fullName(s)} вместе с историей оценок и файлами? Это нельзя отменить.`)) return;
@@ -196,7 +211,7 @@ export function assessView({ id }) {
 ACT['st-share'] = (el) => {
   const id = sid(el), url = (t) => `${location.origin}/s/${t}`;
   openModal(`<h2 class="d-s">Поделиться профилем</h2>
-    <p class="small" style="margin:6px 0 20px">Ссылка открывает профиль только для просмотра: без кнопок, без входа и без вашей личной заметки. Данные всегда актуальные.</p>
+    <p class="small" style="margin:6px 0 20px">Ссылка открывает профиль только для просмотра: без входа и без вашей личной заметки. Менти сможет пройти самооценку по тем же навыкам, и вы увидите обе оценки и среднюю. Данные всегда актуальные.</p>
     <div id="sh-body"><div class="small">Загрузка…</div></div>
     <div class="row" style="justify-content:flex-end;margin-top:20px"><button type="button" class="pill ghost" data-close>Закрыть</button></div>`,
   async (m) => {

@@ -5,7 +5,7 @@ import { loginView } from './views/login.js';
 import { studentsView } from './views/students.js';
 import { wizardView } from './views/wizard.js';
 import { studentView, assessView } from './views/student.js';
-import { shareView } from './views/share.js';
+import { shareView, shareAssessView } from './views/share.js';
 
 // [шаблон пути, экран, нужна ли авторизация]
 const routes = [
@@ -15,6 +15,7 @@ const routes = [
   ['student/:id', studentView, true],
   ['student/:id/assess', assessView, true],
   ['s/:token', shareView, false],
+  ['s/:token/assess', shareAssessView, false],
 ];
 function match(path) {
   for (const [pat, fn, auth] of routes) {

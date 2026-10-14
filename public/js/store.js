@@ -1,6 +1,7 @@
 // Слой данных. Источник правды — сервер (D1 + R2), см. src/worker.js.
 // Список учеников держим в памяти: чтение синхронное, а каждая запись сразу уходит на сервер.
 import { api } from './api.js';
+import { slugify } from './ui.js';
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()).replace('.', ''));
 const now = () => new Date().toISOString();
@@ -25,13 +26,19 @@ export const getStudent = (id) => cache.find((s) => s.id === id);
 // ---------- запись ----------
 function mutate(id, fn) { const s = getStudent(id); if (!s) return; fn(s); s.updatedAt = now(); save(s); return s; }
 
+// Адрес карточки — фамилия латиницей; при совпадении добавляем номер.
+function newId(lastName) {
+  const base = slugify(lastName); if (!base) return uid();
+  let id = base, n = 2; while (cache.some((s) => s.id === id)) id = `${base}-${n++}`;
+  return id;
+}
 export async function addStudent(d) {
   const t = now();
   const s = {
-    id: uid(), createdAt: t, updatedAt: t,
+    id: newId(d.lastName), createdAt: t, updatedAt: t,
     firstName: d.firstName.trim(), lastName: d.lastName.trim(),
     grade: d.grade, status: d.status || 'active', avatar: d.avatar || '',
-    jobless: !!d.jobless, company: d.jobless ? '' : d.company?.trim() || '', role: d.role?.trim() || '',
+    jobless: !!d.jobless, company: d.jobless ? '' : d.company?.trim() || '', role: d.jobless ? '' : d.role?.trim() || '',
     goal: { position: d.targetRole?.trim() || '', company: d.targetCompany?.trim() || '', salary: d.salary ? Number(d.salary) : null, currency: d.currency || '₽', horizon: d.horizon || '' },
     portfolios: [], cvs: [], sessions: [], tasks: [],
     assessments: [{ id: uid(), date: t, scores: { ...d.scores }, comment: 'Первичная оценка' }],
@@ -69,6 +76,14 @@ export async function importJson(text) {
 }
 export async function seed(list) { await api('POST', '/import', { students: list }); await initStore(); }
 export const uidNew = uid;
+
+// Самооценки приходят от менти напрямую в базу — подтягиваем их, не трогая остальные локальные правки.
+export async function refreshSelf(id) {
+  const fresh = (await api('GET', '/students')).find((x) => x.id === id), s = getStudent(id); if (!fresh || !s) return false;
+  const changed = (fresh.selfAssessments?.length || 0) !== (s.selfAssessments?.length || 0);
+  if (changed) s.selfAssessments = fresh.selfAssessments; return changed;
+}
+export const submitSelf = (token, scores) => api('POST', `/share/${encodeURIComponent(token)}/self`, { scores });
 
 // ---------- публичная ссылка на профиль ----------
 export const getShare = async (id) => (await api('GET', `/students/${id}/share`)).token;

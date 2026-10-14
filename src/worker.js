@@ -516,6 +516,8 @@ async function route(req, env, url) {
 
 export default {
   async fetch(req, env) {
+    const u = new URL(req.url);
+    if (u.hostname === 'www.menty.work') { u.hostname = 'menty.work'; return Response.redirect(u.toString(), 308); } // единый адрес: www → без www
     if (!env.ADMIN_PASSWORD || !env.ADMIN_EMAIL) return fail(500, 'Не заданы ADMIN_EMAIL и секрет ADMIN_PASSWORD');
     try { return await route(req, env, new URL(req.url)); }
     catch (e) { if (e instanceof Response) return e; console.error(e); return fail(500, 'Ошибка сервера'); }

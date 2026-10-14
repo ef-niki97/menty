@@ -8,6 +8,10 @@ compatibility_date = "2025-09-01"
 pattern = "menty.work"
 custom_domain = true
 
+[[routes]]
+pattern = "www.menty.work"
+custom_domain = true # отсюда всё перенаправляется на menty.work
+
 [assets]
 directory = "./public"
 not_found_handling = "single-page-application"

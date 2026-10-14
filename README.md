@@ -21,6 +21,7 @@
 
 Сайт работает на `https://menty.work`. Redirect URI для обоих: `https://menty.work/api/auth/google/callback` и `https://menty.work/api/auth/yandex/callback`
 (входить нужно именно с этого адреса: адрес возврата берётся из адресной строки).
+Адрес `www.menty.work` тоже подключён и перенаправляет на `menty.work`: страницы — скриптом в `index.html`, запросы `/api/*` — кодом Worker.
 
 - **Google:** Google Cloud Console → APIs & Services → Credentials → *OAuth client ID* (Web application),
   укажите Redirect URI; на экране согласия достаточно scope `openid email profile`.

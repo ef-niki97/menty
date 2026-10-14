@@ -38,6 +38,7 @@ export function shareAssessView({ token }) {
     async mount(root) {
       const main = root.querySelector('#sa-main');
       let s; try { s = await api('GET', `/share/${encodeURIComponent(token)}`); } catch (e) { main.innerHTML = bad(e); return; }
+      if (s.shareOpts?.competencies === false) { main.innerHTML = msg('block', 'Оценка недоступна', 'Ментор отключил оценку компетенций по этой ссылке.'); return; }
       Object.assign(scores, selfLatest(s)?.scores || {});
       main.innerHTML = `<a class="back" href="/s/${esc(token)}">${icon('arrow_back')} К профилю</a>
         <div class="eyebrow" style="margin-top:20px">Самооценка</div><h1 class="d-m">Оцените свои компетенции</h1>

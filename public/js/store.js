@@ -64,12 +64,13 @@ export async function addStudent(d) {
     grade: d.grade, status: d.status || 'active', avatar: d.avatar || '',
     jobless: !!d.jobless, company: d.jobless ? '' : d.company?.trim() || '', role: d.jobless ? '' : d.role?.trim() || '',
     goal: { position: d.targetRole?.trim() || '', company: d.targetCompany?.trim() || '', salary: d.salary ? Number(d.salary) : null, currency: d.currency || '₽', horizon: d.horizon || '' },
-    portfolios: [], cvs: [], sessions: [], tasks: [],
+    portfolios: [], cvs: [], contracts: [], sessions: [], tasks: [],
     assessments: [{ id: uid(), date: t, scores: { ...d.scores }, comment: 'Первичная оценка' }],
     privateNote: d.privateNote?.trim() || '',
   };
   if (d.portfolio) s.portfolios.push({ id: uid(), url: d.portfolio, title: 'Портфолио', note: '', addedAt: t });
   if (d.cv) { const id = uid(); await putFile(id, d.cv); s.cvs.push({ id, name: d.cv.name, size: d.cv.size, type: d.cv.type, addedAt: t }); }
+  if (d.contract) { const id = uid(); await putFile(id, d.contract); s.contracts.push({ id, name: d.contract.name, size: d.contract.size, type: d.contract.type, addedAt: t }); }
   await api('POST', '/students', s);
   cache.push(s); return s;
 }
@@ -80,6 +81,10 @@ export const addPortfolio = (id, p) => mutate(id, (s) => s.portfolios.push({ id:
 export async function addCv(id, file) {
   const fid = uid(); await putFile(fid, file);
   return mutate(id, (s) => s.cvs.push({ id: fid, name: file.name, size: file.size, type: file.type, addedAt: now() }));
+}
+export async function addContract(id, file) {
+  const fid = uid(); await putFile(fid, file);
+  return mutate(id, (s) => { (s.contracts ||= []).push({ id: fid, name: file.name, size: file.size, type: file.type, addedAt: now() }); });
 }
 export const addSession = (id, { date, text }) => mutate(id, (s) => s.sessions.push({ id: uid(), date, text: text.trim() }));
 export const removeSession = (id, sid) => mutate(id, (s) => { s.sessions = s.sessions.filter((x) => x.id !== sid); });
@@ -110,6 +115,7 @@ export async function refreshSelf(id) {
 export const submitSelf = (token, scores) => api('POST', `/share/${encodeURIComponent(token)}/self`, { scores });
 
 // ---------- публичная ссылка на профиль ----------
-export const getShare = async (id) => (await api('GET', `/students/${id}/share`)).token;
-export const createShare = async (id) => (await api('POST', `/students/${id}/share`, {})).token;
+export const getShare = (id) => api('GET', `/students/${id}/share`); // { token, opts }
+export const createShare = (id) => api('POST', `/students/${id}/share`, {});
+export const setShareOpts = (id, opts) => api('PUT', `/students/${id}/share`, { opts });
 export const revokeShare = (id) => api('DELETE', `/students/${id}/share`);

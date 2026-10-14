@@ -74,6 +74,13 @@ function cvCard(s, ro) {
     ${list.length ? `<div class="list">${list.map((c, i) => `<div class="li ${i ? 'old' : ''}"><span class="ico-sq">${icon('description')}</span><div class="grow"><b class="ell">${esc(c.name)}</b><div class="small">${fmtSize(c.size)} · ${fmtDate(c.addedAt)}</div></div>${i === 0 ? '<span class="chip ok">Актуальное</span>' : ''}${ro ? '' : `<button class="chip" data-act="st-cv-dl" data-id="${c.id}" data-name="${esc(c.name)}" aria-label="Скачать">${icon('download')}</button>`}</div>`).join('')}</div>` : '<p class="small">CV пока не загружено.</p>'}</div>`;
 }
 
+// Договор виден только ментору: на публичной странице его нет (сервер его вообще не отдаёт).
+function contractCard(s) {
+  const list = [...(s.contracts || [])].reverse();
+  return `<div class="card"><div class="card-h"><h2 class="d-s">Договор</h2><label class="pill ghost sm" for="ct-up" style="cursor:pointer">${icon('upload')} ${list.length ? 'Загрузить новый' : 'Загрузить'}</label><input id="ct-up" type="file" hidden accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt,.rtf"></div>
+    ${list.length ? `<div class="list">${list.map((c, i) => `<div class="li ${i ? 'old' : ''}"><span class="ico-sq">${icon('contract')}</span><div class="grow"><b class="ell">${esc(c.name)}</b><div class="small">${fmtSize(c.size)} · ${fmtDate(c.addedAt)}</div></div>${i === 0 ? '<span class="chip ok">Актуальный</span>' : ''}<button class="chip" data-act="st-cv-dl" data-id="${c.id}" data-name="${esc(c.name)}" aria-label="Скачать">${icon('download')}</button></div>`).join('')}</div>` : '<p class="small">Договор пока не загружен.</p>'}</div>`;
+}
+
 const tasksCard = (s, ro) => `<div class="card"><div class="card-h"><h2 class="d-s">Задачи</h2><span class="small">${s.tasks.filter((t) => t.done).length}/${s.tasks.length}</span></div>
   <div class="tasks">${s.tasks.map((t) => `<div class="task ${t.done ? 'done' : ''}">${ro ? `<span class="tk">${t.done ? icon('check') : ''}</span>` : `<button class="tk" data-act="st-task" data-id="${t.id}" aria-label="Отметить">${t.done ? icon('check') : ''}</button>`}<span class="grow">${esc(t.text)}</span>${ro ? '' : `<button class="x" data-act="st-task-del" data-id="${t.id}" aria-label="Удалить">${icon('close')}</button>`}</div>`).join('') || '<p class="small">Нет задач.</p>'}</div>
   ${ro ? '' : `<form class="row add-row" id="task-form"><input class="field sm" name="text" placeholder="Новая задача для ученика" autocomplete="off" required><button class="pill dark sm" type="submit">Добавить</button></form>`}</div>`;
@@ -89,14 +96,15 @@ const privateCard = (s) => `<div class="card flat"><div class="card-h"><h2 class
 // Общая вёрстка для кабинета ментора и для публичной ссылки (ro = только просмотр: без кнопок, форм и личной заметки).
 export function studentPage(s, base, ro = false) {
   last = { s, base, ro }; const token = typeof ro === 'string' ? ro : ''; // для публичной страницы ro — это токен ссылки
+  const show = (k) => !ro || s.shareOpts?.[k] !== false; // на публичной странице ментор мог скрыть разделы
   const now = latest(s), st = STATUSES[s.status] || STATUSES.active, g = growth(s);
   const av = ro ? avatar(s, 'xl') : `<label class="av-edit" for="av-up" title="Сменить фото">${avatar(s, 'xl')}<span class="av-cam">${icon('photo_camera')}</span></label><input id="av-up" type="file" accept="image/*" hidden>`;
   return `<div class="hero"><div class="hero-l">${av}<div><h1 class="d-m">${esc(fullName(s))}</h1>
-      <div class="row wrap" style="margin:10px 0 6px"><span class="chip on">${esc(s.grade)}</span><span class="chip ${st.tone}">${st.label}</span><span class="chip">${fmt1(total(now.scores))}/5 ${g === null ? '' : dChip(g)}</span></div>
+      <div class="row wrap" style="margin:10px 0 6px"><span class="chip on">${esc(s.grade)}</span><span class="chip ${st.tone}">${st.label}</span>${show('competencies') ? `<span class="chip">${fmt1(total(now.scores))}/5 ${g === null ? '' : dChip(g)}</span>` : ''}</div>
       <div class="muted">${esc(workLine(s))}</div></div></div>
-      ${ro ? `<div class="row"><a class="pill dark" href="/s/${esc(token)}/assess">Оценить компетенции</a></div>` : `<div class="row"><button class="pill ghost" data-act="st-share">${icon('ios_share')} Поделиться</button><button class="pill ghost" data-act="st-edit">${icon('edit')} Редактировать</button></div>`}</div>
-    <div class="detail"><div class="col-main">${competenciesCard(s, now, base, ro)}${historyCard(s, now, ro)}${sessionsCard(s, ro)}</div>
-      <div class="col-side">${goalCard(s, ro)}${portfolioCard(s, ro)}${cvCard(s, ro)}${tasksCard(s, ro)}${ro ? '' : privateCard(s)}</div></div>`;
+      ${ro ? (show('competencies') ? `<div class="row"><a class="pill dark" href="/s/${esc(token)}/assess">Оценить компетенции</a></div>` : '') : `<div class="row"><button class="pill ghost" data-act="st-share">${icon('ios_share')} Поделиться</button><button class="pill ghost" data-act="st-edit">${icon('edit')} Редактировать</button></div>`}</div>
+    <div class="detail"><div class="col-main">${show('competencies') ? competenciesCard(s, now, base, ro) : ''}${show('history') ? historyCard(s, now, ro) : ''}${show('sessions') ? sessionsCard(s, ro) : ''}</div>
+      <div class="col-side">${show('goal') ? goalCard(s, ro) : ''}${show('portfolio') ? portfolioCard(s, ro) : ''}${show('cv') ? cvCard(s, ro) : ''}${ro ? '' : contractCard(s)}${show('tasks') ? tasksCard(s, ro) : ''}${ro ? '' : privateCard(s)}</div></div>`;
 }
 // Оценка, с которой сравниваем по умолчанию: самая первая (если оценок больше одной).
 export const defaultBase = (s) => (s.assessments.length > 1 ? s.assessments[0] : null);
@@ -119,6 +127,10 @@ export function studentView({ id }) {
       root.querySelector('#av-up').addEventListener('change', async (e) => {
         const f = e.target.files[0]; if (!f) return;
         try { store.updateStudent(id, { avatar: await fileToAvatar(f) }); toast('Фото обновлено'); rerender(); } catch { toast('Не удалось прочитать изображение'); }
+      });
+      root.querySelector('#ct-up').addEventListener('change', async (e) => {
+        const f = e.target.files[0]; if (!f) return; if (f.size > MAX_FILE) { toast('Файл больше 10 МБ'); return; }
+        try { await store.addContract(id, f); toast('Договор загружен'); rerender(); } catch { toast('Не удалось сохранить файл'); }
       });
       root.querySelector('#cv-up').addEventListener('change', async (e) => {
         const f = e.target.files[0]; if (!f) return; if (f.size > MAX_FILE) { toast('Файл больше 10 МБ'); return; }
@@ -220,12 +232,20 @@ ACT['st-share'] = (el) => {
     <div class="row" style="justify-content:flex-end;margin-top:20px"><button type="button" class="pill ghost" data-close>Закрыть</button></div>`,
   async (m) => {
     const body = m.querySelector('#sh-body');
-    const paint = (t) => {
-      body.innerHTML = t
-        ? `<div class="col" style="gap:12px"><input class="field" id="sh-url" readonly value="${esc(url(t))}"><div class="row spread"><button type="button" class="pill dark" id="sh-copy">${icon('content_copy')} Скопировать ссылку</button><button type="button" class="pill danger-ghost" id="sh-off">Отключить</button></div><p class="small">Любой, у кого есть ссылка, сможет открыть профиль. Если отключить, она перестанет работать.</p></div>`
+    const PARTS = [['competencies', 'Компетенции'], ['history', 'История оценок'], ['goal', 'Цель'], ['portfolio', 'Портфолио'], ['cv', 'CV'], ['sessions', 'Встречи и заметки'], ['tasks', 'Задачи']];
+    const paint = (sh) => {
+      body.innerHTML = sh?.token
+        ? `<div class="col" style="gap:14px"><input class="field" id="sh-url" readonly value="${esc(url(sh.token))}"><div class="row spread"><button type="button" class="pill dark" id="sh-copy">${icon('content_copy')} Скопировать ссылку</button><button type="button" class="pill danger-ghost" id="sh-off">Отключить</button></div>
+          <div><div class="lbl" style="margin-bottom:2px">Что показывать по ссылке</div><div class="sh-opts">${PARTS.map(([k, l]) => `<label class="chk"><input type="checkbox" data-opt="${k}" ${sh.opts[k] !== false ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>
+          <p class="small hint" style="margin-top:10px">Договор и личная заметка не показываются никогда. Изменения применяются сразу.</p></div></div>`
         : `<button type="button" class="pill dark" id="sh-on">${icon('link')} Создать ссылку</button>`;
     };
     try { paint(await store.getShare(id)); } catch { body.innerHTML = '<div class="form-err">Не удалось загрузить</div>'; return; }
+    m.addEventListener('change', async (e) => {
+      const k = e.target.dataset?.opt; if (!k) return;
+      const opts = Object.fromEntries([...m.querySelectorAll('[data-opt]')].map((c) => [c.dataset.opt, c.checked]));
+      try { await store.setShareOpts(id, opts); } catch { e.target.checked = !e.target.checked; toast('Не удалось сохранить'); }
+    });
     m.addEventListener('click', async (e) => {
       try {
         if (e.target.closest('#sh-on')) paint(await store.createShare(id));

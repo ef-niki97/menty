@@ -12,6 +12,23 @@ const TOKEN_RE = /^[A-Za-z0-9_-]{10,43}$/; // новые ссылки — 10 с�
 const SKILL_IDS = ['visual', 'typo', 'ux', 'proto', 'ds', 'product', 'ia', 'responsive', 'motion', 'a11y',
   'comm', 'pitch', 'feedback', 'time', 'team', 'initiative', 'critical', 'adapt', 'empathy', 'selfdev',
   'prompt', 'ai_research', 'ai_visual', 'ai_proto', 'ai_flow'];
+// Что показывать на публичной странице: по умолчанию всё; ментор отключает разделы чекбоксами.
+const SHARE_KEYS = ['competencies', 'history', 'goal', 'portfolio', 'cv', 'sessions', 'tasks'];
+const cleanOpts = (o) => Object.fromEntries(SHARE_KEYS.map((k) => [k, !(o && o[k] === false)]));
+const parseOpts = (t) => { try { return cleanOpts(JSON.parse(t)); } catch { return cleanOpts(null); } };
+// Скрытое вырезаем на сервере, а не только прячем в интерфейсе. Договор и личная заметка не публикуются никогда.
+function publicView(doc, opts) {
+  const { privateNote, contracts, workspaceId, ...st } = doc;
+  const list = Array.isArray(st.assessments) && st.assessments.length ? st.assessments : [{ id: 'none', date: st.createdAt, scores: {}, comment: '' }];
+  if (!opts.competencies) { st.assessments = [{ id: list[list.length - 1].id, date: list[list.length - 1].date, scores: {}, comment: '' }]; st.selfAssessments = []; }
+  else if (!opts.history) st.assessments = list.slice(-1);
+  if (!opts.goal) st.goal = { position: '', company: '', salary: null, currency: '₽', horizon: '' };
+  if (!opts.portfolio) st.portfolios = [];
+  if (!opts.cv) st.cvs = [];
+  if (!opts.sessions) st.sessions = [];
+  if (!opts.tasks) st.tasks = [];
+  return { ...st, shareOpts: opts };
+}
 const isAi = (id) => id === 'prompt' || id.startsWith('ai_');
 
 // Была короткая версия с десятибалльной шкалой (записи с v:2). Возвращаем пятибалльную: хард и софт делим на 2.
@@ -70,6 +87,7 @@ async function ensureSchema(env) {
     env.DB.prepare('CREATE TABLE IF NOT EXISTS workspaces (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at TEXT NOT NULL)'),
     env.DB.prepare('CREATE TABLE IF NOT EXISTS file_chunks (id TEXT NOT NULL, n INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY (id, n))'),
   ]);
+  try { await env.DB.prepare('ALTER TABLE shares ADD COLUMN opts TEXT').run(); } catch { /* колонка уже есть */ }
   // Воркспейсы: если их нет — создаём «Основной» и переносим в него всех существующих учеников.
   let first = await env.DB.prepare('SELECT id FROM workspaces ORDER BY created_at, rowid LIMIT 1').first();
   if (!first) { await env.DB.prepare('INSERT INTO workspaces (id, name, created_at) VALUES (?1, ?2, ?3)').bind('main', 'Основной', new Date().toISOString()).run(); first = { id: 'main' }; }
@@ -128,10 +146,9 @@ async function route(req, env, url) {
   if (pub && m === 'GET') {
     if (!TOKEN_RE.test(pub[1])) return fail(404, 'Ссылка недействительна');
     await ensureSchema(env);
-    const row = await env.DB.prepare('SELECT s.data FROM shares h JOIN students s ON s.id = h.student_id WHERE h.token = ?1').bind(pub[1]).first();
+    const row = await env.DB.prepare('SELECT s.data, h.opts FROM shares h JOIN students s ON s.id = h.student_id WHERE h.token = ?1').bind(pub[1]).first();
     if (!row) return fail(404, 'Ссылка недействительна');
-    const { privateNote, ...student } = JSON.parse(row.data);
-    return json(student, 200, { 'x-robots-tag': 'noindex, nofollow' });
+    return json(publicView(JSON.parse(row.data), parseOpts(row.opts)), 200, { 'x-robots-tag': 'noindex, nofollow' });
   }
 
   // Самооценка менти по публичной ссылке: единственная запись, доступная без входа. Принимаем только оценки навыков 0–5.
@@ -146,8 +163,9 @@ async function route(req, env, url) {
     }
     if (!Object.values(clean).some((v) => v > 0)) return fail(400, 'Оцените хотя бы один навык');
     await ensureSchema(env);
-    const row = await env.DB.prepare('SELECT s.data FROM shares h JOIN students s ON s.id = h.student_id WHERE h.token = ?1').bind(self[1]).first();
+    const row = await env.DB.prepare('SELECT s.data, h.opts FROM shares h JOIN students s ON s.id = h.student_id WHERE h.token = ?1').bind(self[1]).first();
     if (!row) return fail(404, 'Ссылка недействительна');
+    if (!parseOpts(row.opts).competencies) return fail(403, 'Оценка по этой ссылке отключена');
     const doc = JSON.parse(row.data);
     doc.selfAssessments = [...(Array.isArray(doc.selfAssessments) ? doc.selfAssessments : []), { id: newToken(), date: new Date().toISOString(), scores: clean }].slice(-20);
     await upsert(env, doc).run();
@@ -208,12 +226,19 @@ async function route(req, env, url) {
 
   r = p.match(/^\/api\/students\/([^/]+)\/share$/);
   if (r && ID_RE.test(r[1])) {
-    const id = r[1], q = () => env.DB.prepare('SELECT token FROM shares WHERE student_id = ?1').bind(id).first();
-    if (m === 'GET') return json({ token: (await q())?.token || null });
+    const id = r[1], q = () => env.DB.prepare('SELECT token, opts FROM shares WHERE student_id = ?1').bind(id).first();
+    const out = async () => { const x = await q(); return { token: x?.token || null, opts: parseOpts(x?.opts) }; };
+    if (m === 'GET') return json(await out());
+    if (m === 'PUT') {
+      if (!(await q())) return fail(404, 'Ссылка не создана');
+      const { opts } = await readJson(req, 4096);
+      await env.DB.prepare('UPDATE shares SET opts = ?2 WHERE student_id = ?1').bind(id, JSON.stringify(cleanOpts(opts))).run();
+      return json(await out());
+    }
     if (m === 'POST') {
       if (!(await env.DB.prepare('SELECT id FROM students WHERE id = ?1').bind(id).first())) return fail(404, 'Ученик не найден');
       await env.DB.prepare('INSERT INTO shares (token, student_id, created_at) VALUES (?1, ?2, ?3) ON CONFLICT(student_id) DO NOTHING').bind(newToken(), id, new Date().toISOString()).run();
-      return json({ token: (await q()).token });
+      return json(await out());
     }
     if (m === 'DELETE') { await env.DB.prepare('DELETE FROM shares WHERE student_id = ?1').bind(id).run(); return json({ ok: true }); }
   }
@@ -232,7 +257,7 @@ async function route(req, env, url) {
     if (m === 'DELETE') {
       const row = await env.DB.prepare('SELECT data FROM students WHERE id = ?1').bind(id).first();
       if (row) {
-        const keys = (JSON.parse(row.data).cvs || []).map((c) => c.id).filter((k) => typeof k === 'string' && ID_RE.test(k));
+        const doc = JSON.parse(row.data), keys = [...(doc.cvs || []), ...(doc.contracts || [])].map((c) => c.id).filter((k) => typeof k === 'string' && ID_RE.test(k));
         for (const k of keys) await deleteFile(env, k);
         await env.DB.prepare('DELETE FROM shares WHERE student_id = ?1').bind(id).run();
         await env.DB.prepare('DELETE FROM students WHERE id = ?1').bind(id).run();

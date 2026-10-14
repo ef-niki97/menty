@@ -3,6 +3,11 @@ main = "src/worker.js"
 compatibility_date = "2025-09-01"
 
 # Статика сайта лежит в public/. Запросы на /api/* сначала идут в Worker.
+# Свой домен (зона menty.work уже в этом аккаунте Cloudflare): при деплое Cloudflare сам создаёт DNS-запись и сертификат.
+[[routes]]
+pattern = "menty.work"
+custom_domain = true
+
 [assets]
 directory = "./public"
 not_found_handling = "single-page-application"

@@ -15,11 +15,12 @@
    - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` и `YANDEX_CLIENT_ID`, `YANDEX_CLIENT_SECRET` — ключи входа (см. ниже);
    - переменные (не секреты, можно в `wrangler.toml`): `SIGNUP_MODE` (`invite` по умолчанию, `open` или `closed`),
      `MAX_STUDENTS` (учеников на ментора, 100) и `QUOTA_MB` (файлов на ментора, 200). У администратора лимитов нет.
-4. Откройте выданный адрес и войдите: через Google/Яндекс с почтой администратора (`ADMIN_EMAIL`) либо по паролю.
+4. Откройте `https://menty.work` и войдите: через Google/Яндекс с почтой администратора (`ADMIN_EMAIL`) либо по паролю.
 
 ### Вход через Google и Яндекс
 
-Redirect URI для обоих: `https://<ваш-домен>/api/auth/google/callback` и `https://<ваш-домен>/api/auth/yandex/callback`.
+Сайт работает на `https://menty.work`. Redirect URI для обоих: `https://menty.work/api/auth/google/callback` и `https://menty.work/api/auth/yandex/callback`
+(входить нужно именно с этого адреса: адрес возврата берётся из адресной строки).
 
 - **Google:** Google Cloud Console → APIs & Services → Credentials → *OAuth client ID* (Web application),
   укажите Redirect URI; на экране согласия достаточно scope `openid email profile`.

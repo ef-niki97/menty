@@ -22,6 +22,7 @@ export function loginView() {
           <p class="small" style="margin:6px 0 24px">Панель ментора</p>
           <div class="col" id="l-prov" style="gap:12px"><div class="small">Загрузка…</div></div>
           <div class="form-err hide" id="l-msg" role="alert">${icon('error')} <span></span></div>
+          <p class="legal-links">Входя, вы принимаете <a href="/terms" target="_blank" rel="noopener">условия использования</a> и <a href="/privacy" target="_blank" rel="noopener">политику конфиденциальности</a>.</p>
           <details class="more hide" id="l-pw" style="margin-top:22px"><summary>Вход по паролю (администратор) ${icon('expand_more')}</summary>
             <form id="login-form" novalidate style="margin-top:14px">
               <label class="lbl" for="l-email">Почта</label>

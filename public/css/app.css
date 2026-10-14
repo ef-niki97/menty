@@ -386,3 +386,14 @@ span.tk{cursor:default}span.tk:hover{border-color:var(--black-20)}.task.done spa
 
 /* поле кода приглашения — по высоте и ширине как кнопка входа */
 .field.lg{height:56px;padding:0 30px;font-size:18px}
+
+/* страницы «Политика» и «Условия» */
+.legal{max-width:760px;margin:0 auto;padding:48px var(--gutter) 96px;font:400 17px/1.6 var(--font);color:var(--black-84)}
+.legal h1{font:800 40px/1.1 var(--font);letter-spacing:-.03em;color:var(--ink);margin:18px 0 6px}
+.legal h2{font:700 22px/1.25 var(--font);letter-spacing:-.02em;color:var(--ink);margin:34px 0 8px}
+.legal .meta{color:var(--black-52);margin:0 0 14px}
+.legal .note{background:var(--orange-bg);color:var(--orange);border-radius:16px;padding:12px 16px;font-size:15px;font-weight:500}
+.legal ul{padding-left:22px}.legal li{margin:6px 0}
+.legal a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--black-20);text-underline-offset:3px}
+.legal-back{display:inline-block;color:var(--black-52)!important;text-decoration:none!important;font-weight:600}
+.legal-links{margin-top:18px;font-size:14px;color:var(--black-52)}.legal-links a{color:inherit;text-decoration:underline;text-decoration-color:var(--black-20);text-underline-offset:3px}

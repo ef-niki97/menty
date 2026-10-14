@@ -31,4 +31,9 @@ binding = "DB"
 database_name = "menty"
 database_id = "7faf9afe-f324-4ba6-8de1-6a304e7e3426"
 
+# Хранилище файлов CV и договоров (бакет создан в аккаунте Cloudflare).
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "menty-files"
+
 # Секреты (в панели, не в этом файле): ADMIN_PASSWORD, GOOGLE_CLIENT_ID/SECRET, YANDEX_CLIENT_ID/SECRET — см. README.

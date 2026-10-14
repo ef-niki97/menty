@@ -1,6 +1,11 @@
 {
   "name": "menty",
   "private": true,
-  "scripts": { "dev": "wrangler dev", "deploy": "wrangler deploy" },
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "migrate": "wrangler d1 migrations apply menty --remote",
+    "release": "npm run migrate && npm run deploy"
+  },
   "devDependencies": { "wrangler": "^4.0.0" }
 }

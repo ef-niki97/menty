@@ -1,5 +1,5 @@
 // Menty API: многопользовательский сервис. Вход через Google и Яндекс (плюс пароль администратора как запасной),
-// данные каждого ментора изолированы по owner_id, файлы режутся на куски в D1.
+// данные каждого ментора изолированы по owner_id, файлы лежат в R2 (старые — кусками в D1). Структуру базы создают миграции из папки migrations/.
 // Статику сайта отдаёт сам Cloudflare (см. [assets] в wrangler.toml).
 
 const MAX_FILE = 10 * 1024 * 1024;
@@ -103,74 +103,6 @@ const allowPassword = (env) => env.ALLOW_PASSWORD_LOGIN === '1' && !!env.ADMIN_P
 const signupMode = (env) => (['open', 'invite', 'closed'].includes(env.SIGNUP_MODE) ? env.SIGNUP_MODE : 'invite');
 const maxStudents = (env, user) => (user.role === 'admin' ? Infinity : Number(env.MAX_STUDENTS) || 100);
 const maxStorage = (env, user) => (user.role === 'admin' ? Infinity : (Number(env.QUOTA_MB) || 200) * 1024 * 1024);
-
-// ---------- схема ----------
-const BASE_SCHEMA = [
-  'CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)',
-  "CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL, avatar TEXT, role TEXT NOT NULL DEFAULT 'mentor', created_at TEXT NOT NULL, last_login TEXT)",
-  'CREATE TABLE IF NOT EXISTS identities (provider TEXT NOT NULL, provider_id TEXT NOT NULL, user_id TEXT NOT NULL, PRIMARY KEY (provider, provider_id))',
-  'CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at INTEGER NOT NULL)',
-  'CREATE TABLE IF NOT EXISTS invites (code TEXT PRIMARY KEY, created_by TEXT NOT NULL, created_at TEXT NOT NULL, used_by TEXT, used_at TEXT)',
-  'CREATE TABLE IF NOT EXISTS file_chunks (id TEXT NOT NULL, n INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY (id, n))',
-];
-// Таблицы с данными менторов: у каждой строки есть владелец (owner_id).
-const TENANT_DDL = {
-  students: 'CREATE TABLE students (owner_id TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (owner_id, id))',
-  workspaces: 'CREATE TABLE workspaces (owner_id TEXT NOT NULL, id TEXT NOT NULL, name TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY (owner_id, id))',
-  shares: 'CREATE TABLE shares (token TEXT PRIMARY KEY, owner_id TEXT NOT NULL, student_id TEXT NOT NULL, opts TEXT, created_at TEXT NOT NULL, UNIQUE (owner_id, student_id))',
-  review_links: 'CREATE TABLE review_links (token TEXT PRIMARY KEY, owner_id TEXT NOT NULL, student_id TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE (owner_id, student_id))',
-};
-const FILES_DDL = 'CREATE TABLE files (id TEXT PRIMARY KEY, owner_id TEXT, type TEXT NOT NULL, size INTEGER NOT NULL, r2 INTEGER NOT NULL DEFAULT 0)'; // r2 = 1: файл лежит в R2, 0 — старым способом, кусками в D1
-
-async function tableCols(env, t) { const { results } = await env.DB.prepare(`PRAGMA table_info(${t})`).all(); return results.map((r) => r.name); }
-
-// Один раз переводим одиночную базу в многопользовательскую: все существующие данные становятся данными администратора.
-async function migrateTenancy(env) {
-  const admin = await ensureAdminUser(env), stmts = [], q = (s) => env.DB.prepare(s);
-  const old = {};
-  for (const t of Object.keys(TENANT_DDL)) old[t] = await tableCols(env, t);
-  for (const [t, ddl] of Object.entries(TENANT_DDL)) {
-    const cols = old[t];
-    if (!cols.length) { stmts.push(q(ddl)); continue; }               // новая установка
-    if (cols.includes('owner_id')) continue;                          // уже переведено
-    stmts.push(q(`ALTER TABLE ${t} RENAME TO ${t}_old`), q(ddl));
-    if (t === 'students') stmts.push(q('INSERT INTO students (owner_id, id, data, updated_at) SELECT ?1, id, data, updated_at FROM students_old').bind(admin.id));
-    if (t === 'workspaces') stmts.push(q('INSERT INTO workspaces (owner_id, id, name, created_at) SELECT ?1, id, name, created_at FROM workspaces_old').bind(admin.id));
-    if (t === 'shares') stmts.push(q(`INSERT INTO shares (token, owner_id, student_id, opts, created_at) SELECT token, ?1, student_id, ${cols.includes('opts') ? 'opts' : 'NULL'}, created_at FROM shares_old`).bind(admin.id));
-    if (t === 'review_links') stmts.push(q('INSERT INTO review_links (token, owner_id, student_id, created_at) SELECT token, ?1, student_id, created_at FROM review_links_old').bind(admin.id));
-    stmts.push(q(`DROP TABLE ${t}_old`));
-  }
-  const fcols = await tableCols(env, 'files');
-  if (!fcols.length) stmts.push(q(FILES_DDL));
-  else if (!fcols.includes('owner_id')) stmts.push(q('ALTER TABLE files ADD COLUMN owner_id TEXT'), q('UPDATE files SET owner_id = ?1 WHERE owner_id IS NULL').bind(admin.id));
-  await env.DB.batch(stmts);
-  // у администратора всегда есть воркспейс, а старые ученики лежат в нём
-  const ws = await defaultWs(env, admin.id);
-  await env.DB.prepare("UPDATE students SET data = json_set(data, '$.workspaceId', ?2) WHERE owner_id = ?1 AND json_extract(data, '$.workspaceId') IS NULL").bind(admin.id, ws).run();
-  await env.DB.prepare("INSERT OR IGNORE INTO meta (k, v) VALUES ('tenancy', '1')").run();
-}
-
-let schemaReady = false;
-async function ensureSchema(env) {
-  if (schemaReady) return;
-  await env.DB.batch(BASE_SCHEMA.map((s) => env.DB.prepare(s)));
-  if (!(await env.DB.prepare("SELECT v FROM meta WHERE k = 'tenancy'").first())) {
-    try { await migrateTenancy(env); }
-    catch (e) { if (!(await env.DB.prepare("SELECT v FROM meta WHERE k = 'tenancy'").first())) throw e; } // параллельный запрос мог уже всё сделать
-  }
-  if (!(await env.DB.prepare("SELECT v FROM meta WHERE k = 'files_r2'").first())) {
-    if (!(await tableCols(env, 'files')).includes('r2')) await env.DB.prepare('ALTER TABLE files ADD COLUMN r2 INTEGER NOT NULL DEFAULT 0').run();
-    await env.DB.prepare("INSERT OR IGNORE INTO meta (k, v) VALUES ('files_r2', '1')").run();
-  }
-  // Один раз откатываем оценки, сохранённые в десятибалльной шкале (старые данные).
-  if (!(await env.DB.prepare("SELECT v FROM meta WHERE k = 'scale5_restored'").first())) {
-    const { results } = await env.DB.prepare('SELECT owner_id, data FROM students').all(), stmts = [];
-    for (const r of results) { const d = JSON.parse(r.data); if (restoreScale(d)) stmts.push(upsert(env, r.owner_id, d)); }
-    for (let i = 0; i < stmts.length; i += 50) await env.DB.batch(stmts.slice(i, i + 50));
-    await env.DB.prepare("INSERT OR IGNORE INTO meta (k, v) VALUES ('scale5_restored', '1')").run();
-  }
-  schemaReady = true;
-}
 
 // Основной воркспейс пользователя; если нет ни одного — создаём.
 async function defaultWs(env, owner) {
@@ -305,7 +237,6 @@ async function route(req, env, url) {
   if ((p.startsWith('/api/auth/') && p !== '/api/auth/providers') || p === '/api/login') {
     if (await limited(env, 'AUTH_LIMIT', ip)) return p.startsWith('/api/auth/') ? redirect('/login?error=rate_limited') : tooMany();
   }
-  await ensureSchema(env);
 
   // ----- вход и выход -----
   if (p === '/api/auth/providers' && m === 'GET') return json({ google: providerOn(env, 'google'), yandex: providerOn(env, 'yandex'), password: allowPassword(env), signup: signupMode(env) });

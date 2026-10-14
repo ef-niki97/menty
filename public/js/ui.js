@@ -41,6 +41,21 @@ export function toast(msg) {
   setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, 2600);
 }
 
+// Своё окно подтверждения вместо системного confirm(): возвращает Promise<boolean>. Escape и клик по фону — «отмена».
+export function confirmDialog({ title, text = '', ok = 'Удалить', cancel = 'Отмена', danger = true }) {
+  return new Promise((resolve) => {
+    const bg = document.createElement('div'); bg.className = 'modal-bg';
+    bg.innerHTML = `<div class="modal confirm" role="alertdialog" aria-modal="true" aria-labelledby="cf-t"><h2 class="d-s" id="cf-t">${esc(title)}</h2>${text ? `<p class="small" style="margin:8px 0 0">${esc(text)}</p>` : ''}
+      <div class="row" style="justify-content:flex-end;margin-top:26px;gap:10px"><button type="button" class="pill ghost" data-no>${esc(cancel)}</button><button type="button" class="pill ${danger ? 'danger-ghost' : 'dark'}" data-yes>${esc(ok)}</button></div></div>`;
+    const done = (v) => { document.removeEventListener('keydown', onKey, true); bg.remove(); resolve(v); };
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+    bg.addEventListener('mousedown', (e) => { if (e.target === bg) done(false); });
+    bg.addEventListener('click', (e) => { if (e.target.closest('[data-yes]')) done(true); else if (e.target.closest('[data-no]')) done(false); });
+    document.addEventListener('keydown', onKey, true); document.body.appendChild(bg);
+    bg.querySelector(danger ? '[data-no]' : '[data-yes]').focus(); // для удаления фокус на «Отмена», чтобы случайный Enter ничего не стёр
+  });
+}
+
 export function openModal(html, mount) {
   const bg = document.createElement('div'); bg.className = 'modal-bg'; bg.innerHTML = `<div class="modal" role="dialog" aria-modal="true">${html}</div>`;
   const close = () => { bg.remove(); document.removeEventListener('keydown', onKey); };

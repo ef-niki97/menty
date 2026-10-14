@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { icon, logo, esc, toast } from '../ui.js';
+import { icon, logo, esc, toast, confirmDialog } from '../ui.js';
 import * as store from '../store.js';
 import { SKILLS } from '../config.js';
 import { selfLatest } from '../metrics.js';
@@ -52,10 +52,11 @@ export function shareAssessView({ token }) {
       root.querySelector('#sa-send').addEventListener('click', async (e) => {
         const rated = SKILLS.filter((k) => scores[k.id] > 0).length;
         if (!rated) { toast('Оцените хотя бы один навык'); return; }
-        if (rated < SKILLS.length && !confirm(`Оценено ${rated} из ${SKILLS.length} навыков. Отправить так?`)) return;
-        e.currentTarget.disabled = true;
+        const btn = e.currentTarget;
+        if (rated < SKILLS.length && !(await confirmDialog({ title: 'Отправить оценку?', text: `Оценено ${rated} из ${SKILLS.length} навыков. Остальные останутся без оценки.`, ok: 'Отправить', danger: false }))) return;
+        btn.disabled = true;
         try { await store.submitSelf(token, scores); toast('Спасибо! Оценка отправлена ментору'); window.__go(`/s/${token}`); }
-        catch { e.currentTarget.disabled = false; toast('Не удалось отправить, попробуйте ещё раз'); }
+        catch { btn.disabled = false; toast('Не удалось отправить, попробуйте ещё раз'); }
       });
     },
   };

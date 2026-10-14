@@ -1,6 +1,6 @@
 import * as store from '../store.js';
 import { GRADES, STATUSES, CURRENCIES, HORIZONS, GROUPS, SKILLS, LEVELS } from '../config.js';
-import { esc, icon, avatar, fileToAvatar, fullName, workLine, fmtDate, fmtMoney, fmtSize, today, safeUrl, host, toast, openModal, downloadBlob, ACT } from '../ui.js';
+import { confirmDialog, esc, icon, avatar, fileToAvatar, fullName, workLine, fmtDate, fmtMoney, fmtSize, today, safeUrl, host, toast, openModal, downloadBlob, ACT } from '../ui.js';
 import { radar, radarLegend, scoreOrb } from '../radar.js';
 import { skillsEditorHtml, bindSkillsEditor } from '../skills-editor.js';
 import { datePicker } from '../datepicker.js';
@@ -176,17 +176,20 @@ ACT['rv-copy'] = async () => {
 ACT['st-cmp'] = (el) => { cmp.base = el.dataset.id; rerender(); };
 ACT['st-task'] = (el) => { store.toggleTask(sid(el), el.dataset.id); rerender(); };
 ACT['st-task-del'] = (el) => { store.removeTask(sid(el), el.dataset.id); rerender(); };
-ACT['st-sess-del'] = (el) => { if (confirm('Удалить эту запись?')) { store.removeSession(sid(el), el.dataset.id); rerender(); } };
+ACT['st-sess-del'] = async (el) => { if (await confirmDialog({ title: 'Удалить запись о встрече?', text: 'Запись исчезнет из истории.' })) { store.removeSession(sid(el), el.dataset.id); rerender(); } };
 ACT['file-menu'] = (el) => {
   const menu = el.parentElement.querySelector('.fmenu'), open = menu.classList.contains('on');
   document.querySelectorAll('.fmenu.on').forEach((m) => m.classList.remove('on')); if (!open) menu.classList.add('on');
 };
-ACT['file-active'] = (el) => { store.setActiveFile(sid(el), el.dataset.kind, el.dataset.id); toast('Файл теперь актуальный'); rerender(); };
+const closeFileMenus = () => document.querySelectorAll('.fmenu.on').forEach((m) => m.classList.remove('on'));
+ACT['file-active'] = (el) => { closeFileMenus(); store.setActiveFile(sid(el), el.dataset.kind, el.dataset.id); toast('Файл теперь актуальный'); rerender(); };
 ACT['file-del'] = async (el) => {
-  if (!confirm(`Удалить файл «${el.dataset.name}»? Это нельзя отменить.`)) return;
+  closeFileMenus();
+  if (!(await confirmDialog({ title: 'Удалить файл?', text: `«${el.dataset.name}» будет удалён без возможности восстановления.` }))) return;
   try { await store.removeFile(sid(el), el.dataset.kind, el.dataset.id); toast('Файл удалён'); rerender(); } catch { toast('Не удалось удалить файл'); }
 };
 ACT['st-cv-dl'] = async (el) => {
+  closeFileMenus();
   try { const blob = await store.getFile(el.dataset.id); if (!blob) throw 0; downloadBlob(blob, el.dataset.name); } catch { toast('Файл не найден (в резервную копию файлы не входят)'); }
 };
 ACT['st-add-pf'] = (el) => {
@@ -227,7 +230,7 @@ ACT['st-edit'] = (el) => {
     m.querySelector('[name=jobless]').addEventListener('change', (e) => { for (const n of ['company', 'role']) { const c = m.querySelector(`[name=${n}]`); c.disabled = e.target.checked; if (e.target.checked) c.value = ''; } });
     m.querySelector('#ed-av-del')?.addEventListener('click', () => { store.updateStudent(id, { avatar: '' }); close(); toast('Фото убрано'); rerender(); });
     m.querySelector('#ed-del').addEventListener('click', async () => {
-      if (!confirm(`Удалить ${fullName(s)} вместе с историей оценок и файлами? Это нельзя отменить.`)) return;
+      if (!(await confirmDialog({ title: `Удалить ученика ${fullName(s)}?`, text: 'Вместе с историей оценок, заметками и файлами. Это нельзя отменить.' }))) return;
       await store.removeStudent(id); close(); toast('Ученик удалён'); window.__go('/students');
     });
   });
@@ -250,9 +253,9 @@ export function assessView({ id }) {
     mount(root) {
       const draw = () => { root.querySelector('#as-radar').innerHTML = radar([{ scores: prev.scores, kind: 'prev' }, { scores, kind: 'now' }]) + radarLegend(true, `Было · ${fmtDate(prev.date)}`, 'Стало'); root.querySelector('#as-tiles').innerHTML = scoreOrb(scores, prev.scores); };
       draw(); bindSkillsEditor(root.querySelector('#as-skills'), scores, draw);
-      root.querySelector('#as-save').addEventListener('click', () => {
+      root.querySelector('#as-save').addEventListener('click', async () => {
         const same = SKILLS.every((k) => (scores[k.id] || 0) === (prev.scores[k.id] || 0));
-        if (same && !confirm('Оценки не изменились. Всё равно сохранить?')) return;
+        if (same && !(await confirmDialog({ title: 'Оценки не изменились', text: 'Всё равно сохранить новую оценку?', ok: 'Сохранить', danger: false }))) return;
         store.addAssessment(id, scores, root.querySelector('#as-comment').value); cmp = { id, base: prev.id };
         toast('Оценка сохранена'); window.__go(`/student/${id}`);
       });
@@ -286,7 +289,7 @@ ACT['st-share'] = (el) => {
     m.addEventListener('click', async (e) => {
       try {
         if (e.target.closest('#sh-on')) paint(await store.createShare(id));
-        else if (e.target.closest('#sh-off')) { if (confirm('Отключить ссылку? Те, у кого она есть, потеряют доступ.')) { await store.revokeShare(id); paint(null); toast('Ссылка отключена'); } }
+        else if (e.target.closest('#sh-off')) { if (await confirmDialog({ title: 'Отключить ссылку?', text: 'Те, у кого она есть, потеряют доступ.', ok: 'Отключить' })) { await store.revokeShare(id); paint(null); toast('Ссылка отключена'); } }
         else if (e.target.closest('#sh-copy')) {
           const inp = m.querySelector('#sh-url');
           try { await navigator.clipboard.writeText(inp.value); } catch { inp.select(); document.execCommand('copy'); }

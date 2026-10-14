@@ -401,9 +401,11 @@ span.tk{cursor:default}span.tk:hover{border-color:var(--black-20)}.task.done spa
 /* файлы: имя-ссылка и меню «⋯» */
 .li{position:relative}
 .li.old{opacity:1}.li.old .ico-sq,.li.old .grow{opacity:.62;transition:opacity var(--dur-1)}.li.old:hover .ico-sq,.li.old:hover .grow{opacity:1}
-.link-btn{display:block;max-width:100%;text-align:left;font:600 15px var(--font);color:var(--ink);text-decoration:underline;text-decoration-color:var(--black-20);text-underline-offset:3px;cursor:pointer}
-.link-btn:hover{text-decoration-color:var(--ink)}
+.link-btn{display:block;max-width:100%;text-align:left;font:600 15px var(--font);color:var(--ink);text-decoration:none;cursor:pointer}
+.link-btn:hover{color:var(--accent-hover);text-decoration:underline;text-decoration-color:var(--black-32);text-underline-offset:3px}
 .fwrap{position:relative;flex:none}
 .fmenu{position:absolute;right:0;top:40px;width:230px;background:#fff;border-radius:20px;box-shadow:var(--elev-3);padding:8px;z-index:45;opacity:0;pointer-events:none;transform:translateY(-6px) scale(.98);transform-origin:top right;transition:opacity var(--dur-1),transform var(--dur-1) var(--ease)}
 .fmenu.on{opacity:1;pointer-events:auto;transform:none}
 .fmenu .um-i{padding:9px 12px;font-size:15px}
+
+.modal.confirm{max-width:440px}

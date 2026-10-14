@@ -1,7 +1,7 @@
 import { initAuth, isAuthed, logout, forgetUser, currentUser } from './auth.js';
 import { api } from './api.js';
 import { initStore, resetStore, exportJson, importJson, workspaces, currentWs, setWs, createWorkspace, renameWorkspace, deleteWorkspace, allStudents } from './store.js';
-import { $, ACT, esc, icon, logo, toast, downloadBlob, today, openModal } from './ui.js';
+import { $, ACT, confirmDialog, esc, icon, logo, toast, downloadBlob, today, openModal } from './ui.js';
 import { loginView } from './views/login.js';
 import { studentsView } from './views/students.js';
 import { wizardView } from './views/wizard.js';
@@ -152,7 +152,7 @@ ACT['ws-del'] = async (el) => {
   const w = workspaces().find((x) => x.id === el.dataset.id); if (!w) return;
   if (workspaces().length <= 1) { toast('Нельзя удалить единственный воркспейс'); return; }
   if (allStudents().some((s) => s.workspaceId === w.id)) { toast('В воркспейсе есть ученики — сначала удалите их'); return; }
-  if (!confirm(`Удалить воркспейс «${w.name}»?`)) return;
+  if (!(await confirmDialog({ title: `Удалить воркспейс «${w.name}»?`, text: 'Воркспейс должен быть пустым.' }))) return;
   try { await deleteWorkspace(w.id); toast('Воркспейс удалён'); go('/students'); } catch { toast('Не удалось удалить воркспейс'); }
 };
 ACT['ws-new'] = () => {
@@ -168,9 +168,9 @@ ACT['ws-new'] = () => {
 ACT['menu-toggle'] = () => { $('#wsmenu')?.classList.remove('on'); $('#umenu').classList.toggle('on'); };
 ACT.logout = async () => { await logout(); resetStore(); go('/login'); };
 ACT.backup = () => { downloadBlob(new Blob([exportJson()], { type: 'application/json' }), `menty-backup-${today()}.json`); toast('Копия скачана. Файлы CV в неё не входят'); $('#umenu')?.classList.remove('on'); };
-function onRestore(e) {
+async function onRestore(e) {
   const f = e.target.files[0]; if (!f) return;
-  if (!confirm('Заменить все текущие данные данными из файла?')) { e.target.value = ''; return; }
+  if (!(await confirmDialog({ title: 'Восстановить из копии?', text: 'Текущие данные будут заменены данными из файла.', ok: 'Восстановить' }))) { e.target.value = ''; return; }
   f.text().then(importJson).then(() => { toast('Данные восстановлены'); go('/students'); }).catch(() => toast('Не удалось восстановить данные из файла'));
 }
 

@@ -1,5 +1,5 @@
 import { initAuth, isAuthed, logout, forgetUser, currentUser } from './auth.js';
-import { initStore, resetStore, exportJson, importJson, workspaces, currentWs, setWs, createWorkspace } from './store.js';
+import { initStore, resetStore, exportJson, importJson, workspaces, currentWs, setWs, createWorkspace, deleteWorkspace, allStudents } from './store.js';
 import { $, ACT, esc, icon, logo, toast, downloadBlob, today, openModal } from './ui.js';
 import { loginView } from './views/login.js';
 import { studentsView } from './views/students.js';
@@ -31,9 +31,11 @@ let lastPath = null;
 
 function wsSwitcher() {
   const cur = currentWs(); if (!cur) return '';
-  return `<div class="ws"><button class="ws-btn" data-act="ws-toggle" aria-haspopup="true" aria-label="Воркспейс">${icon('workspaces', 'ol')}<span class="ell">${esc(cur.name)}</span>${icon('expand_more')}</button>
+  return `<div class="ws"><button class="ws-btn" data-act="ws-toggle" aria-haspopup="true" aria-label="Воркспейс">${icon('menu')}<span class="ell">${esc(cur.name)}</span>${icon('expand_more')}</button>
     <div class="wsmenu" id="wsmenu"><div class="ws-cap">Воркспейсы</div>
-      ${workspaces().map((w) => `<button class="um-i" data-act="ws-pick" data-id="${esc(w.id)}"><span class="ell grow">${esc(w.name)}</span>${w.id === cur.id ? icon('check') : ''}</button>`).join('')}
+      ${workspaces().map((w) => `<div class="ws-row"><button class="um-i" data-act="ws-pick" data-id="${esc(w.id)}"><span class="ell grow">${esc(w.name)}</span>${w.id === cur.id ? icon('check') : ''}</button>
+        <button class="ws-dots" data-act="ws-more" data-id="${esc(w.id)}" aria-label="Действия с воркспейсом «${esc(w.name)}»">${icon('more_horiz')}</button>
+        <div class="ws-sub"><button class="um-i danger" data-act="ws-del" data-id="${esc(w.id)}">${icon('delete', 'ol')} Удалить воркспейс</button></div></div>`).join('')}
       <div class="um-sep"></div><button class="um-i" data-act="ws-new">${icon('add')} Создать воркспейс</button></div></div>`;
 }
 function nav(active) {
@@ -84,6 +86,14 @@ document.addEventListener('click', (e) => {
 
 ACT['ws-toggle'] = () => { $('#umenu')?.classList.remove('on'); $('#wsmenu').classList.toggle('on'); };
 ACT['ws-pick'] = (el) => { setWs(el.dataset.id); go('/students'); };
+ACT['ws-more'] = (el) => el.closest('.ws-row').classList.toggle('open');
+ACT['ws-del'] = async (el) => {
+  const w = workspaces().find((x) => x.id === el.dataset.id); if (!w) return;
+  if (workspaces().length <= 1) { toast('Нельзя удалить единственный воркспейс'); return; }
+  if (allStudents().some((s) => s.workspaceId === w.id)) { toast('В воркспейсе есть ученики — сначала удалите их'); return; }
+  if (!confirm(`Удалить воркспейс «${w.name}»?`)) return;
+  try { await deleteWorkspace(w.id); toast('Воркспейс удалён'); go('/students'); } catch { toast('Не удалось удалить воркспейс'); }
+};
 ACT['ws-new'] = () => {
   $('#wsmenu')?.classList.remove('on');
   openModal(`<h2 class="d-s">Новый воркспейс</h2><p class="small" style="margin:6px 0 20px">Воркспейс — отдельное пространство со своим списком учеников, например группа или поток.</p>

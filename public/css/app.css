@@ -348,3 +348,10 @@ span.tk{cursor:default}span.tk:hover{border-color:var(--black-20)}.task.done spa
 .wsmenu .um-i .i{color:var(--ink)}
 .ws~.nav-links{margin-left:20px}
 @media (max-width:760px){.ws-btn{max-width:170px}}
+
+.ws-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px}
+.ws-row .um-i{min-width:0}
+.ws-dots{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:var(--black-52);transition:background var(--dur-1),color var(--dur-1)}
+.ws-dots:hover,.ws-row.open .ws-dots{background:var(--black-6);color:var(--ink)}.ws-dots .i{font-size:22px}
+.ws-sub{grid-column:1/-1;display:none;padding:2px 0 4px 12px}.ws-row.open .ws-sub{display:block}
+.um-i.danger,.um-i.danger .i{color:var(--red)}.um-i.danger:hover{background:var(--red-bg)}

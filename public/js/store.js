@@ -26,6 +26,10 @@ export const resetStore = () => { cache = []; spaces = []; wsId = ''; };
 // ---------- воркспейсы ----------
 export const workspaces = () => spaces;
 export const currentWs = () => spaces.find((w) => w.id === wsId) || spaces[0] || null;
+export async function deleteWorkspace(id) {
+  await api('DELETE', `/workspaces/${id}`); spaces = spaces.filter((w) => w.id !== id);
+  if (wsId === id) { wsId = spaces[0]?.id || ''; rememberWs(); }
+}
 export const setWs = (id) => { if (spaces.some((w) => w.id === id)) { wsId = id; rememberWs(); } };
 export async function createWorkspace(name) {
   const w = await api('POST', '/workspaces', { name }); spaces.push(w); wsId = w.id; rememberWs(); return w;
@@ -36,6 +40,7 @@ export const putFile = (id, blob) => api('PUT', `/files/${id}`, blob);
 export const getFile = async (id) => (await api('GET', `/files/${id}`, undefined, true)).blob();
 
 // ---------- чтение ----------
+export const allStudents = () => cache;
 export const students = () => cache.filter((s) => s.workspaceId === currentWs()?.id); // только текущий воркспейс
 export const getStudent = (id) => cache.find((s) => s.id === id);
 

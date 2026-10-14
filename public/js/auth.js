@@ -11,4 +11,5 @@ export async function login(email, password) {
 }
 export async function logout() { try { await api('POST', '/logout', {}); } catch { /* всё равно выходим */ } user = null; }
 export const forgetUser = () => { user = null; };
-export const currentUser = () => ({ email: user?.email || '', name: 'Админ' });
+export const currentUser = () => ({ id: user?.id || '', email: user?.email || '', name: user?.name || user?.email || '', role: user?.role || 'mentor', avatar: user?.avatar || '' });
+export const authProviders = () => api('GET', '/auth/providers'); // какие способы входа включены на сервере

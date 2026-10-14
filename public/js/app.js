@@ -1,4 +1,5 @@
 import { initAuth, isAuthed, logout, forgetUser, currentUser } from './auth.js';
+import { api } from './api.js';
 import { initStore, resetStore, exportJson, importJson, workspaces, currentWs, setWs, createWorkspace, renameWorkspace, deleteWorkspace, allStudents } from './store.js';
 import { $, ACT, esc, icon, logo, toast, downloadBlob, today, openModal } from './ui.js';
 import { loginView } from './views/login.js';
@@ -49,7 +50,9 @@ function nav(active) {
     <div class="umenu" id="umenu"><div class="um-name">${esc(u.name)}</div><div class="small" style="margin-bottom:8px">${esc(u.email)}</div><div class="um-sep"></div>
       <button class="um-i" data-act="backup">${icon('download')} Скачать резервную копию</button>
       <label class="um-i" for="restore-in">${icon('upload')} Восстановить из копии</label><input id="restore-in" type="file" accept="application/json,.json" hidden>
-      <div class="um-sep"></div><button class="um-i" data-act="logout">${icon('logout')} Выйти</button></div></div></header>`;
+      ${u.role === 'admin' ? `<button class="um-i" data-act="invites">${icon('group_add', 'ol')} Приглашения</button>` : ''}
+      <div class="um-sep"></div><button class="um-i" data-act="logout">${icon('logout')} Выйти</button>
+      <button class="um-i danger" data-act="acc-del">${icon('person_remove', 'ol')} Удалить аккаунт</button></div></div></header>`;
 }
 
 function render(path, keep) {
@@ -79,13 +82,47 @@ window.addEventListener('menty:unauth', () => { forgetUser(); resetStore(); if (
 
 document.addEventListener('click', (e) => {
   const l = e.target.closest('a[href^="/"]');
-  if (l && !l.target && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && e.button === 0) { e.preventDefault(); go(l.getAttribute('href')); return; }
+  if (l && !l.getAttribute('href').startsWith('/api/') && !l.target && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && e.button === 0) { e.preventDefault(); go(l.getAttribute('href')); return; }
   const a = e.target.closest('[data-act]');
   if (a && ACT[a.dataset.act]) { if (a.tagName === 'A') e.preventDefault(); ACT[a.dataset.act](a, e); }
   if (!e.target.closest('#umenu') && !e.target.closest('[data-act=menu-toggle]')) $('#umenu')?.classList.remove('on');
   if (!e.target.closest('#wsmenu') && !e.target.closest('[data-act=ws-toggle]')) $('#wsmenu')?.classList.remove('on');
 });
 
+ACT.invites = async () => {
+  $('#umenu')?.classList.remove('on');
+  const link = (c) => `${location.origin}/login?invite=${c}`;
+  openModal(`<h2 class="d-s">Приглашения</h2><p class="small" style="margin:6px 0 18px">Новый ментор может зарегистрироваться только по ссылке-приглашению. Каждая ссылка одноразовая.</p>
+    <button type="button" class="pill dark" id="iv-new">${icon('add')} Создать приглашение</button><div class="col" id="iv-list" style="gap:10px;margin-top:18px"></div>
+    <div class="row" style="justify-content:flex-end;margin-top:20px"><button type="button" class="pill ghost" data-close>Закрыть</button></div>`,
+  async (m) => {
+    const list = m.querySelector('#iv-list');
+    const paint = async () => {
+      try { const rows = await api('GET', '/invites'); list.innerHTML = rows.map((r) => `<div class="row" style="gap:8px">${r.usedBy ? `<span class="small grow ell">Использовано: ${esc(r.usedBy)}</span>` : `<input class="field sm" readonly value="${esc(link(r.code))}" style="flex:1;min-width:0"><button type="button" class="pill ghost sm" data-copy="${esc(r.code)}">Скопировать</button><button type="button" class="x" style="opacity:1" data-del="${esc(r.code)}" aria-label="Удалить">${icon('close')}</button>`}</div>`).join('') || '<p class="small">Пока нет приглашений.</p>'; }
+      catch { list.innerHTML = '<div class="form-err">Не удалось загрузить</div>'; }
+    };
+    await paint();
+    m.addEventListener('click', async (e) => {
+      try {
+        if (e.target.closest('#iv-new')) { await api('POST', '/invites', {}); await paint(); }
+        const c = e.target.closest('[data-copy]'), d = e.target.closest('[data-del]');
+        if (c) { try { await navigator.clipboard.writeText(link(c.dataset.copy)); } catch { c.previousElementSibling.select(); document.execCommand('copy'); } toast('Ссылка скопирована'); }
+        if (d) { await api('DELETE', `/invites/${d.dataset.del}`); await paint(); }
+      } catch { toast('Не удалось выполнить действие'); }
+    });
+  });
+};
+ACT['acc-del'] = () => {
+  $('#umenu')?.classList.remove('on'); const email = currentUser().email;
+  openModal(`<h2 class="d-s">Удалить аккаунт</h2><p class="small" style="margin:6px 0 18px">Все ваши ученики, оценки, файлы и ссылки будут удалены без возможности восстановления. Перед этим можно скачать резервную копию в меню профиля. Чтобы подтвердить, введите свою почту.</p>
+    <form class="col" id="ad-form"><input class="field" name="confirm" placeholder="${esc(email)}" autocomplete="off" data-1p-ignore data-lpignore="true" required>
+    <div class="row spread" style="margin-top:8px"><button type="button" class="pill ghost" data-close>Отмена</button><button class="pill danger-ghost" type="submit">Удалить навсегда</button></div></form>`,
+  (m, close) => m.querySelector('#ad-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try { await api('DELETE', '/account', { confirm: new FormData(e.target).get('confirm') }); close(); forgetUser(); resetStore(); toast('Аккаунт удалён'); go('/login'); }
+    catch { toast('Не удалось удалить: проверьте почту'); }
+  }));
+};
 ACT['ws-toggle'] = () => { $('#umenu')?.classList.remove('on'); $('#wsmenu').classList.toggle('on'); };
 ACT['ws-pick'] = (el) => { setWs(el.dataset.id); go('/students'); };
 ACT['ws-more'] = (el) => el.closest('.ws-row').classList.toggle('open');

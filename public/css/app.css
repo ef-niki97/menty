@@ -380,3 +380,6 @@ span.tk{cursor:default}span.tk:hover{border-color:var(--black-20)}.task.done spa
 @keyframes ty-beat{0%,100%{transform:scale(1)}12%{transform:scale(1.1)}24%{transform:scale(1)}36%{transform:scale(1.06)}48%{transform:scale(1)}}
 .fx{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:90}
 @media (prefers-reduced-motion:reduce){.ty-heart{animation:none}}
+
+/* вход через провайдеров */
+.prov{display:flex;align-items:center;justify-content:center;gap:12px;width:100%}

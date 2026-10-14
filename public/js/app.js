@@ -52,7 +52,8 @@ function nav(active) {
       <label class="um-i" for="restore-in">${icon('upload')} Восстановить из копии</label><input id="restore-in" type="file" accept="application/json,.json" hidden>
       ${u.role === 'admin' ? `<button class="um-i" data-act="invites">${icon('group_add', 'ol')} Приглашения</button>` : ''}
       <div class="um-sep"></div><button class="um-i" data-act="logout">${icon('logout')} Выйти</button>
-      ${u.role === 'admin' ? '' : `<button class="um-i danger" data-act="acc-del">${icon('person_remove', 'ol')} Удалить аккаунт</button>`}</div></div></header>`;
+      ${u.role === 'admin' ? '' : `<button class="um-i danger" data-act="acc-del">${icon('person_remove', 'ol')} Удалить аккаунт</button>`}
+      <div class="um-sep"></div><div class="legal-links" style="margin:0 0 2px 12px"><a href="/terms" target="_blank" rel="noopener">Условия</a> · <a href="/privacy" target="_blank" rel="noopener">Политика</a></div></div></div></header>`;
 }
 
 function render(path, keep) {

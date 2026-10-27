@@ -4,8 +4,8 @@ body{margin:0;background:var(--bg);color:var(--ink);font:500 16px/1.47 var(--fon
 button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
 a{color:inherit;text-decoration:none}
 h1,h2,h3,p{margin:0}
-.i{font-family:var(--font-icon);font-variation-settings:"FILL" 1,"wght" 500;font-size:22px;line-height:1;display:inline-block;vertical-align:middle;font-feature-settings:"liga";font-style:normal;user-select:none;flex:none}
-.i.ol{font-variation-settings:"FILL" 0,"wght" 400}
+.i{font-size:22px;line-height:1;display:inline-flex;width:1em;height:1em;align-items:center;justify-content:center;vertical-align:middle;font-style:normal;user-select:none;flex:none}
+.i>svg{display:block;width:100%;height:100%;fill:currentColor}
 .num{font-variant-numeric:tabular-nums}
 .muted{color:var(--black-52)}
 .hide{display:none!important}
@@ -161,7 +161,7 @@ input[type=number].field{-moz-appearance:textfield}
 .drop .i{font-size:30px;color:var(--black-32)}.drop.has .i{color:var(--ink)}
 .drop b{display:block}
 .sum-grid{display:grid;grid-template-columns:1fr 1.2fr;gap:20px;align-items:start}
-.sum-av{display:flex;align-items:center;gap:16px;margin-bottom:20px}.sum-av .d-s{margin-bottom:6px}
+.sum-av{display:flex;align-items:center;gap:16px;margin-bottom:20px}.sum-av .student-name{margin-bottom:6px}
 .kv{display:flex;justify-content:space-between;gap:20px;padding:7px 0;font-size:15px}
 .kv span{color:var(--black-52);white-space:nowrap}.kv b{text-align:right;font-weight:600;word-break:break-word}
 
@@ -170,7 +170,7 @@ input[type=number].field{-moz-appearance:textfield}
 .skills-side{position:sticky;top:24px}.skills-side .card{padding:16px 12px 20px}
 .skills-col{display:flex;flex-direction:column;gap:20px}
 .grp{background:#fff;border-radius:var(--radius-xl);box-shadow:var(--elev-1);padding:22px 26px 10px}
-.grp-h{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.grp-h{display:flex;align-items:center;gap:10px;margin-bottom:16px}
 .grp-h h3{font:700 18px var(--font);letter-spacing:-.03em;flex:1}
 .grp-avg{font:700 18px var(--font);font-variant-numeric:tabular-nums;background:var(--black-6);border-radius:999px;padding:2px 12px}
 .sk{display:grid;grid-template-columns:1fr auto 118px;gap:16px;align-items:center;padding:14px 0;border-top:1px solid var(--black-6)}
@@ -208,15 +208,15 @@ input[type=number].field{-moz-appearance:textfield}
 .more summary{cursor:pointer;font:600 14px var(--font);color:var(--black-52);list-style:none;display:flex;align-items:center;gap:4px;padding:6px 0}
 .more summary::-webkit-details-marker{display:none}.more summary:hover{color:var(--ink)}
 .more[open] summary .i{transform:rotate(180deg)}
-.sr-grp{margin-top:16px}.sr-h{display:flex;align-items:center;gap:8px;font:700 14px var(--font);margin-bottom:4px}.sr-h .i{font-size:18px}
+.sr-grp{margin-top:16px}.sr-h{display:flex;align-items:center;gap:8px;font:700 14px var(--font);margin-bottom:16px}.sr-h .i{font-size:18px}
 .sr{display:grid;grid-template-columns:1.4fr 1.2fr 96px 64px;gap:12px;align-items:center;padding:7px 0;font-size:14px}
 .sr-n{font-weight:600}.sr-l{color:var(--black-52);font-weight:600;font-size:13px}
 .sr-bar{overflow:visible}.sr-bar>i{border-radius:99px}
 .tick{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--black-52);border-radius:2px;transform:translateX(-1px)}
-.tl{position:relative;padding-left:28px}
-.tl::before{content:"";position:absolute;left:7px;top:8px;bottom:8px;width:2px;background:var(--black-8);border-radius:2px}
+.tl{--tl-axis:8px;--tl-indent:28px;position:relative;padding-left:var(--tl-indent)}
+.tl::before{content:"";position:absolute;left:var(--tl-axis);transform:translateX(-50%);top:8px;bottom:8px;width:2px;background:var(--black-8);border-radius:2px}
 .tl-i{position:relative;padding:8px 0 12px}
-.tl-i::before{content:"";position:absolute;left:-26px;top:14px;width:12px;height:12px;border-radius:50%;background:#fff;border:3px solid var(--black-20)}
+.tl-i::before{content:"";position:absolute;box-sizing:border-box;left:calc(var(--tl-axis) - var(--tl-indent));transform:translateX(-50%);top:14px;width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid var(--black-20)}
 .tl-i.acc::before{border-color:var(--ink)}
 .tl-t{font:600 15px var(--font);letter-spacing:-.02em;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .tl-s{font:500 14px/1.45 var(--font);color:var(--black-52);margin-top:2px}
@@ -290,6 +290,7 @@ select.field.sm{padding-right:42px}
 .dp{position:relative;display:inline-block}
 .dp-btn{display:inline-flex;align-items:center;gap:10px;width:auto;min-width:230px;text-align:left;cursor:pointer}
 .dp-btn .i{font-size:20px;color:var(--black-52)}
+.dp-btn .dp-chevron{margin-left:auto}
 .dp-pop{position:absolute;top:calc(100% + 8px);left:0;z-index:60;width:304px;background:#fff;border-radius:24px;box-shadow:var(--elev-3);padding:16px;animation:rise var(--dur-1) var(--ease) both}
 .dp-h{display:flex;align-items:center;justify-content:space-between;margin:2px 4px 10px;font:700 16px var(--font);letter-spacing:-.02em}
 .dp-nav{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;transition:background var(--dur-1)}.dp-nav:hover{background:var(--black-6)}.dp-nav .i{font-size:22px}
@@ -300,6 +301,20 @@ select.field.sm{padding-right:42px}
 .dp-d.today{box-shadow:inset 0 0 0 1.5px var(--black-32)}
 .dp-d.sel{background:var(--ink);color:#fff;box-shadow:none}
 .dp-f{display:flex;justify-content:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--black-6)}
+
+/* Custom select, styled like the calendar popover. */
+.dropdown>.i.trail{display:none}
+.dropdown-btn{display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;cursor:pointer}
+.dropdown-btn [data-dropdown-label]{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dropdown-btn .dropdown-chevron{font-size:20px;color:var(--black-52);transition:transform var(--dur-1) var(--ease)}
+.dropdown-btn[aria-expanded=true] .dropdown-chevron{transform:rotate(180deg)}
+.dropdown-pop{position:fixed;z-index:180;overflow-y:auto;overscroll-behavior:contain;padding:8px;background:#fff;border-radius:24px;box-shadow:var(--elev-3);animation:fade var(--dur-1) both}
+.dropdown-option{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:11px 14px;border-radius:16px;cursor:pointer;font:500 15px/1.4 var(--font);letter-spacing:-.015em;overflow-wrap:anywhere}
+.dropdown-option.highlighted{background:var(--black-6)}
+.dropdown-option[aria-selected=true]{font-weight:600}
+.dropdown-check{display:flex;align-items:center;justify-content:center;width:20px;flex:none}
+.dropdown-check .i{font-size:20px}
+.selw.cur .dropdown-btn{padding-left:20px;padding-right:16px}
 
 /* итоговая оценка: сфера + дуги */
 .orb-wrap{display:grid;grid-template-columns:minmax(260px,1.25fr) minmax(180px,1fr);gap:8px 24px;align-items:center;margin-top:20px;padding-top:20px;border-top:1px solid var(--black-6)}
@@ -409,3 +424,22 @@ span.tk{cursor:default}span.tk:hover{border-color:var(--black-20)}.task.done spa
 .fmenu .um-i{padding:9px 12px;font-size:15px}
 
 .modal.confirm{max-width:440px}
+
+/* Ссылка на LinkedIn рядом с именем ученика. */
+.student-name{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.linkedin-link{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;flex:none;color:var(--black-52);transition:color var(--dur-1),background var(--dur-1)}
+.linkedin-link:hover{color:var(--ink);background:var(--black-6)}
+.linkedin-link:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.student-description{margin-top:6px}
+.student-badges{gap:8px;margin-top:10px}
+.task-text{text-align:left;overflow-wrap:anywhere;border-radius:6px}
+.task-text:hover{background:var(--black-4)}
+.task-text:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.task-input.field{flex:1;min-width:0;width:0;padding:4px 8px;border-radius:8px}
+.assessment-mode{padding:16px 20px;margin-bottom:28px;background:var(--surface-2);border-radius:20px}
+.assessment-mode .chk{margin:0}
+.assessment-mode .hint{margin-top:8px}
+@media (max-width:560px){
+  #comp-card .card-h,#session-form>.row,.stage-foot.flat .in{flex-wrap:wrap}
+  .stage-foot.flat .pill.lg{font-size:16px;padding:0 20px}
+}

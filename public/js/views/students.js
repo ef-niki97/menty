@@ -15,7 +15,7 @@ function rows(list) {
     return `<a class="trow" href="/student/${s.id}">
       <div class="who">${avatar(s)}<div class="grow"><b>${esc(fullName(s))}</b><div class="small ell">${esc(workLine(s))}</div></div></div>
       <div><span class="chip on">${esc(s.grade)}</span></div>
-      <div class="ell">${s.goal.position ? `<b>${esc(s.goal.position)}</b>${s.goal.company ? `<div class="small ell">${esc(s.goal.company)}</div>` : ''}` : '<span class="muted">—</span>'}</div>
+      <div class="ell">${s.goal.position ? `<b>${esc(s.goal.position)}</b>${s.goal.company ? `<div class="small ell">${esc(s.goal.company)}</div>` : ''}` : '<span class="muted">Не указано</span>'}</div>
       <div class="prog"><div class="bar"><i style="width:${(t / 5) * 100}%"></i></div><span class="num">${fmt1(t)}</span>${g === null ? '' : `<span class="delta ${g > 0.04 ? 'up' : g < -0.04 ? 'down' : ''}">${signed(g)}</span>`}</div>
       <div><span class="chip ${st.tone}">${st.label}</span></div>
       <div class="small">${fmtDate(s.updatedAt)}</div>
@@ -35,7 +35,7 @@ export function studentsView() {
   const head = `<div class="section-h"><div><div class="eyebrow">Менти</div><h1 class="d-m">Ученики</h1></div><a class="pill dark" href="/students/new">${icon('add')} Добавить ученика</a></div>`;
   if (!all.length) {
     return { shell: 'app', nav: 'students', html: `<div class="page view" style="padding-top:48px">${head}
-      <div class="card empty-card">${icon('group_add', 'ol')}<h2 class="d-s">Пока никого нет</h2><p class="lede">Добавьте первого ученика — оценим компетенции и построим стартовую диаграмму.</p>
+      <div class="card empty-card">${icon('group_add', 'ol')}<h2 class="d-s">Пока никого нет</h2><p class="lede">Добавьте первого ученика, чтобы оценить компетенции и построить стартовую диаграмму</p>
       <div class="row" style="justify-content:center;margin-top:24px"><a class="pill dark" href="/students/new">${icon('add')} Добавить ученика</a><button class="pill ghost" data-act="seed-demo">Загрузить демо-данные</button></div></div></div>` };
   }
   const active = all.filter((s) => s.status === 'active').length;
@@ -44,11 +44,11 @@ export function studentsView() {
   return {
     shell: 'app', nav: 'students',
     html: `<div class="page view" style="padding-top:48px">${head}
-      <div class="grid g4" style="margin-bottom:28px">${statTile(all.length, 'учеников всего')}${statTile(active, 'активных')}${statTile(fmt1(avgNow) + '<small>/5</small>', 'средний уровень')}${statTile(avgG === null ? '—' : signed(avgG), 'средний рост с начала')}</div>
+      <div class="grid g4" style="margin-bottom:28px">${statTile(all.length, 'учеников всего')}${statTile(active, 'активных')}${statTile(fmt1(avgNow) + '<small>/5</small>', 'средний уровень')}${statTile(avgG === null ? 'Не указано' : signed(avgG), 'средний рост с начала')}</div>
       <div class="filters">
         <div class="selw grow-s">${icon('search', 'lead')}<input class="field sm" id="f-q" placeholder="Поиск по имени, компании, должности" autocomplete="off" value="${esc(F.q)}"></div>
         <div class="seg" id="f-grade"><button class="${!F.grade ? 'on' : ''}" data-g="">Все грейды</button>${GRADES.filter((g) => all.some((s) => s.grade === g)).map((g) => `<button class="${F.grade === g ? 'on' : ''}" data-g="${esc(g)}">${esc(g)}</button>`).join('')}</div>
-        <div class="selw">${icon('expand_more', 'trail')}<select class="field sm" id="f-status"><option value="">Любой статус</option>${Object.entries(STATUSES).map(([k, v]) => `<option value="${k}" ${F.status === k ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div>
+        <div class="selw">${icon('expand_more', 'trail')}<select class="field sm" id="f-status" aria-label="Статус"><option value="">Любой статус</option>${Object.entries(STATUSES).map(([k, v]) => `<option value="${k}" ${F.status === k ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div>
       </div>
       <div class="card tbl">
         <div class="thead"><div>Ученик</div><div>Грейд</div><div>Цель</div><div>Уровень</div><div>Статус</div><div>Обновлён</div></div>

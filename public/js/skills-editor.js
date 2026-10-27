@@ -1,18 +1,18 @@
 import { SKILLS, GROUPS, LEVELS } from './config.js';
-import { esc } from './ui.js';
+import { esc, icon } from './ui.js';
 import { groupAvg, fmt1 } from './metrics.js';
 
 // Редактор оценок: 3 группы, у каждого навыка 5 точек. Повторный клик по выбранному значению сбрасывает оценку.
 // prev — оценки прошлой переоценки: рядом с навыком показываем «было».
 export function skillsEditorHtml(scores, prev) {
   return GROUPS.map((g) => `<section class="grp" data-g="${g.id}">
-    <div class="grp-h"><span class="i" style="color:${g.color}">${g.icon}</span><h3>${g.label}</h3><span class="grp-avg" data-avg="${g.id}">${fmt1(groupAvg(scores, g.id))}</span></div>
+    <div class="grp-h"><span style="color:${g.color}">${icon(g.icon)}</span><h3>${g.label}</h3><span class="grp-avg" data-avg="${g.id}">${fmt1(groupAvg(scores, g.id))}</span></div>
     ${SKILLS.filter((s) => s.g === g.id).map((s) => row(s, scores?.[s.id] || 0, prev?.[s.id])).join('')}
   </section>`).join('');
 }
 const row = (s, v, p) => `<div class="sk" data-skill="${s.id}">
   <div class="sk-t"><b>${esc(s.label)}</b><small>${esc(s.hint)}</small></div>
-  <div class="dots" role="group" aria-label="${esc(s.label)}">${[1, 2, 3, 4, 5].map((n) => `<button type="button" class="dot ${n <= v ? 'on' : ''} ${p === n ? 'was' : ''}" data-v="${n}" aria-label="${n} — ${LEVELS[n]}" title="${LEVELS[n]}"></button>`).join('')}</div>
+  <div class="dots" role="group" aria-label="${esc(s.label)}">${[1, 2, 3, 4, 5].map((n) => `<button type="button" class="dot ${n <= v ? 'on' : ''} ${p === n ? 'was' : ''}" data-v="${n}" aria-label="${n}: ${LEVELS[n]}" title="${LEVELS[n]}"></button>`).join('')}</div>
   <span class="sk-l" data-lvl>${LEVELS[v]}${p ? `<em>было: ${LEVELS[p]}</em>` : ''}</span></div>`;
 
 export function bindSkillsEditor(root, scores, onChange) {

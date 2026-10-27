@@ -1,13 +1,13 @@
 import { addStudent } from '../store.js';
 import { GRADES, CURRENCIES, HORIZONS } from '../config.js';
-import { esc, icon, avatar, workLine, safeUrl, fmtSize, toast, ACT, fileToAvatar } from '../ui.js';
+import { esc, icon, avatar, workLine, safeUrl, linkedInUrl, linkedInLink, fmtSize, toast, ACT, fileToAvatar } from '../ui.js';
 import { radar, radarLegend, scoreOrb } from '../radar.js';
 import { skillsEditorHtml, bindSkillsEditor } from '../skills-editor.js';
 import { total, fmt1 } from '../metrics.js';
 
 const STEPS = ['Ученик', 'Цели', 'Компетенции', 'Итог'];
 const MAX_FILE = 10 * 1024 * 1024;
-const blank = () => ({ avatar: '', firstName: '', lastName: '', grade: 'Junior', status: 'active', jobless: false, company: '', role: '', portfolio: '', cv: null, contract: null, targetRole: '', targetCompany: '', salary: '', currency: '₽', horizon: '', scores: {}, privateNote: '' });
+const blank = () => ({ avatar: '', firstName: '', lastName: '', grade: 'Junior', status: 'active', jobless: false, company: '', role: '', linkedin: '', portfolio: '', cv: null, contract: null, targetRole: '', targetCompany: '', salary: '', currency: '₽', horizon: '', scores: {}, privateNote: '' });
 
 let draft = blank(), step = 1, saving = false;
 const nameOk = () => draft.firstName.trim() && draft.lastName.trim();
@@ -25,9 +25,10 @@ function stepProfile() {
     <div class="grid g2">${input('Имя *', 'firstName', { ph: 'Анна' })}${input('Фамилия *', 'lastName', { ph: 'Соколова' })}</div>
     <div><label class="lbl">Грейд</label><div class="seg wrap" id="w-grade">${GRADES.map((g) => `<button type="button" class="${draft.grade === g ? 'on' : ''}" data-g="${esc(g)}">${esc(g)}</button>`).join('')}</div></div>
     <div class="grid g2"><div>${input('Текущее место работы', 'company', { ph: 'Компания или «Фриланс»', off: draft.jobless })}<label class="chk"><input type="checkbox" id="w-jobless" ${draft.jobless ? 'checked' : ''}><span>Сейчас без работы</span></label></div>${input('Должность', 'role', { ph: 'Junior-дизайнер', off: draft.jobless })}</div>
-    ${input('Портфолио', 'portfolio', { ph: 'behance.net/…, сайт или другая ссылка', hint: 'Следующие версии портфолио можно будет добавлять в профиле — история сохранится.' })}
-    ${fileDrop('cv', 'CV', 'Загрузить CV', 'PDF, DOC или DOCX до 10 МБ — нажмите или перетащите файл')}
-    ${fileDrop('contract', 'Договор', 'Загрузить договор', 'Если есть: PDF, DOC или DOCX до 10 МБ — нажмите или перетащите файл')}`;
+    ${input('LinkedIn', 'linkedin', { ph: 'linkedin.com/in/…', hint: 'Необязательно. Значок со ссылкой появится рядом с именем в профиле.' })}
+    ${input('Портфолио', 'portfolio', { ph: 'behance.net/…, сайт или другая ссылка', hint: 'Следующие версии портфолио можно будет добавлять в профиле с сохранением истории' })}
+    ${fileDrop('cv', 'CV', 'Загрузить CV', 'PDF, DOC или DOCX до 10 МБ: нажмите или перетащите файл')}
+    ${fileDrop('contract', 'Договор', 'Загрузить договор', 'Если есть: PDF, DOC или DOCX до 10 МБ: нажмите или перетащите файл')}`;
 }
 const stepGoals = () => `<div class="eyebrow">Шаг 2 из 4</div><h1 class="d-m">Куда стремимся</h1><p class="lede" style="margin-top:-8px">Целевая роль и условия: от них отсчитываем прогресс. Подходит и для смены работы, и для роста внутри компании.</p>
     ${input('Целевая должность', 'targetRole', { ph: 'Middle Product Designer' })}
@@ -40,9 +41,9 @@ const stepSkills = () => `<div class="eyebrow">Шаг 3 из 4</div><h1 class="d
       <aside class="skills-side"><div class="card"><div id="w-radar">${radar([{ scores: draft.scores, kind: 'now' }])}</div>${radarLegend(false, '', 'Стартовая оценка')}</div></aside></div>`;
 function stepSummary() {
   const url = draft.portfolio && safeUrl(draft.portfolio);
-  const kv = (k, v) => `<div class="kv"><span>${k}</span><b>${v ? esc(v) : '<span class="muted">—</span>'}</b></div>`;
+  const kv = (k, v) => `<div class="kv"><span>${k}</span><b>${v ? esc(v) : '<span class="muted">Не указано</span>'}</b></div>`;
   return `<div class="eyebrow">Шаг 4 из 4</div><h1 class="d-m">Всё готово к созданию</h1><p class="lede" style="margin-top:-8px">Это стартовая точка. При следующих оценках диаграмма покажет «было / стало».</p>
-    <div class="sum-grid"><div class="card"><div class="sum-av">${avatar(draft, 'lg')}<div><div class="d-s">${esc(draft.firstName)} ${esc(draft.lastName)}</div><span class="chip on">${esc(draft.grade)}</span></div></div>
+    <div class="sum-grid"><div class="card"><div class="sum-av">${avatar(draft, 'lg')}<div><div class="student-name"><div class="d-s">${esc(draft.firstName)} ${esc(draft.lastName)}</div>${linkedInLink(draft.linkedin)}</div><span class="chip on">${esc(draft.grade)}</span></div></div>
       ${kv('Работает', workLine({ role: draft.role, company: draft.company, jobless: draft.jobless }) === 'Место работы не указано' ? '' : workLine(draft))}${kv('Портфолио', url || draft.portfolio)}${kv('CV', draft.cv?.name)}${kv('Договор', draft.contract?.name)}
       <div class="divider"></div>${kv('Цель', draft.targetRole)}${kv('Компания', draft.targetCompany)}${kv('Зарплата', draft.salary ? `${Number(draft.salary).toLocaleString('ru-RU')} ${draft.currency}` : '')}${kv('Срок', HORIZONS.find(([v]) => v === draft.horizon)?.[1] !== 'Не указан' ? HORIZONS.find(([v]) => v === draft.horizon)?.[1] : '')}
       ${draft.privateNote ? `<div class="divider"></div><div class="kv"><span>${icon('lock')} Личная заметка</span><b class="note">${esc(draft.privateNote)}</b></div>` : ''}</div>
@@ -73,7 +74,7 @@ export function wizardView() {
         if (step === 3) bindSkillsEditor(main.querySelector('#w-skills'), draft.scores, () => { main.querySelector('#w-radar').innerHTML = radar([{ scores: draft.scores, kind: 'now' }]); });
         syncFoot(); window.scrollTo(0, 0);
       };
-      const go = (n) => { if (n > 1 && !nameOk()) { step = 1; paint(); toast('Укажите имя и фамилию ученика'); return; } step = Math.max(1, Math.min(4, n)); paint(); };
+      const go = (n) => { if (n > 1 && draft.linkedin.trim() && !linkedInUrl(draft.linkedin)) { step = 1; paint(); toast('Укажите ссылку на профиль LinkedIn'); return; } if (n > 1 && !nameOk()) { step = 1; paint(); toast('Укажите имя и фамилию ученика'); return; } step = Math.max(1, Math.min(4, n)); paint(); };
 
       main.addEventListener('input', (e) => { const f = e.target.dataset.f; if (!f) return; draft[f] = e.target.value; if (f === 'firstName' || f === 'lastName') syncFoot(); });
       main.addEventListener('change', async (e) => {
@@ -94,6 +95,7 @@ export function wizardView() {
       ACT['w-file-clear'] = (el, e) => { e.preventDefault(); draft[el.dataset.key] = null; paint(); };
       ACT['w-create'] = async () => {
         if (!nameOk() || saving) return;
+        if (draft.linkedin.trim() && !linkedInUrl(draft.linkedin)) { step = 1; paint(); toast('Укажите ссылку на профиль LinkedIn'); return; }
         if (draft.portfolio && !safeUrl(draft.portfolio)) { step = 1; paint(); toast('Проверьте ссылку на портфолио'); return; }
         saving = true; syncFoot();
         try { const s = await addStudent({ ...draft, portfolio: draft.portfolio ? safeUrl(draft.portfolio) : '' }); toast('Ученик создан'); window.__go(`/student/${s.id}`); }

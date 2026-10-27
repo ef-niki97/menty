@@ -1,6 +1,6 @@
 import * as store from '../store.js';
 import { GRADES, STATUSES, CURRENCIES, HORIZONS, GROUPS, SKILLS, LEVELS } from '../config.js';
-import { confirmDialog, esc, icon, avatar, fileToAvatar, fullName, workLine, fmtDate, fmtMoney, fmtSize, today, safeUrl, host, toast, openModal, downloadBlob, ACT } from '../ui.js';
+import { confirmDialog, esc, icon, avatar, fileToAvatar, fullName, workLine, fmtDate, fmtMoney, fmtSize, today, safeUrl, linkedInUrl, linkedInLink, host, toast, openModal, downloadBlob, ACT } from '../ui.js';
 import { radar, radarLegend, scoreOrb } from '../radar.js';
 import { skillsEditorHtml, bindSkillsEditor } from '../skills-editor.js';
 import { datePicker } from '../datepicker.js';
@@ -17,7 +17,7 @@ const dChip = (d) => d === null || Math.abs(d) < 0.05 ? '' : `<span class="delta
 
 // ---------- блоки ----------
 function skillRows(now, base) {
-  return GROUPS.map((g) => `<div class="sr-grp"><div class="sr-h"><span class="i" style="color:${g.color}">${g.icon}</span>${g.label}</div>
+  return GROUPS.map((g) => `<div class="sr-grp"><div class="sr-h"><span style="color:${g.color}">${icon(g.icon)}</span>${g.label}</div>
     ${SKILLS.filter((s) => s.g === g.id).map((s) => {
       const v = now.scores[s.id] || 0, b = base ? base.scores[s.id] || 0 : null;
       return `<div class="sr"><span class="sr-n">${esc(s.label)}</span><div class="bar sr-bar"><i style="width:${(v / 5) * 100}%;background:${g.color}"></i>${b ? `<u class="tick" style="left:${(b / 5) * 100}%" title="Было: ${LEVELS[b]}"></u>` : ''}</div><span class="sr-l">${LEVELS[v]}</span>${b === null ? '<span></span>' : dChip(v - b) || '<span></span>'}</div>`;
@@ -36,9 +36,9 @@ function competenciesCard(s, now, base, ro) {
   const bar = seg || sel ? `<div class="cmp-bar">${seg}${sel}</div>` : '';
   const miss = SKILLS.filter((k) => !(cur.scores?.[k.id] > 0)).length;
   const note = (me ? `<div class="small cmp-note">Менти оценил себя ${fmtDate(me.date)}</div>` : '')
-    + (!ro && mode === 'mentor' && miss && miss < SKILLS.length ? `<div class="small cmp-note">Не оценено компетенций: ${miss} (бледные подписи на диаграмме). Нажмите «Новая оценка», чтобы оценить новые.</div>` : '');
+    + (!ro && mode === 'mentor' && miss && miss < SKILLS.length ? `<div class="small cmp-note">Не оценено компетенций: ${miss} (бледные подписи на диаграмме). Нажмите «Обновить компетенции», чтобы оценить новые.</div>` : '');
   return `<div class="card" id="comp-card"><div class="card-h"><h2 class="d-s">Компетенции</h2>
-      ${ro ? '' : `<a class="pill dark sm" href="/student/${s.id}/assess">Новая оценка</a>`}</div>
+      ${ro ? '' : `<a class="pill dark sm" href="/student/${s.id}/assess">Обновить компетенции</a>`}</div>
     ${bar}${note}
     ${radar([...(bs ? [{ scores: bs.scores, kind: 'prev' }] : []), { scores: cur.scores, kind: 'now' }])}
     ${radarLegend(!!bs, bs ? `Было · ${fmtDate(bs.date)}` : '', nowLabel)}
@@ -58,16 +58,20 @@ const goalCard = (s, ro) => {
   const g = s.goal, h = HORIZONS.find(([v]) => v === g.horizon);
   const empty = !g.position && !g.company && !g.salary;
   return `<div class="card dark goal"><div class="eyebrow lt">Цель</div>
-    ${empty ? `<p class="muted" style="margin-top:8px">${ro ? 'Цель пока не указана.' : 'Цель не заполнена — добавьте её через «Редактировать».'}</p>` : `<div class="goal-pos">${esc(g.position || 'Должность не указана')}</div>
+    ${empty ? `<p class="muted" style="margin-top:8px">${ro ? 'Цель пока не указана' : 'Цель не заполнена, добавьте её через «Редактировать»'}</p>` : `<div class="goal-pos">${esc(g.position || 'Должность не указана')}</div>
     ${g.company ? `<div class="muted">${esc(g.company)}</div>` : ''}
-    <div class="goal-row"><div><span>Зарплата</span><b>${fmtMoney(g.salary, g.currency)}</b></div><div><span>Срок</span><b>${h && h[0] ? h[1] : '—'}</b></div><div><span>Сейчас</span><b>${esc(s.grade)}</b></div></div>`}</div>`;
+    <div class="goal-row"><div><span>Зарплата</span><b>${fmtMoney(g.salary, g.currency)}</b></div><div><span>Срок</span><b>${h && h[0] ? h[1] : 'Не указано'}</b></div><div><span>Сейчас</span><b>${esc(s.grade)}</b></div></div>`}</div>`;
 };
 
 function portfolioCard(s, ro) {
-  const list = [...s.portfolios].reverse();
-  return `<div class="card"><div class="card-h"><h2 class="d-s">Портфолио</h2>${ro ? '' : `<button class="pill ghost sm" data-act="st-add-pf">${icon('add')} Новая версия</button>`}</div>
-    ${list.length ? `<div class="list">${list.map((p, i) => `<div class="li ${i ? 'old' : ''}"><span class="ico-sq">${icon('link')}</span><div class="grow"><a class="link ell" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.title)}</a><div class="small ell">${esc(host(p.url))} · ${fmtDate(p.addedAt)}</div>${p.note ? `<div class="small note">${esc(p.note)}</div>` : ''}</div>${i === 0 ? '<span class="chip ok">Актуальное</span>' : ''}</div>`).join('')}</div>` : '<p class="small">Ссылок пока нет.</p>'}
-    ${list.length > 1 ? '<p class="small hint">Прошлые версии сохраняются в истории.</p>' : ''}</div>`;
+  const list = [...s.portfolios].reverse(), active = store.activePortfolioId(s);
+  return `<div class="card" id="portfolio-card"><div class="card-h"><h2 class="d-s">Портфолио</h2>${ro ? '' : `<button class="pill ghost sm" data-act="st-add-pf">${icon('add')} Новая версия</button>`}</div>
+    ${list.length ? `<div class="list">${list.map((p) => `<div class="li ${p.id === active ? '' : 'old'}"><span class="ico-sq">${icon('link')}</span><div class="grow"><a class="link ell" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.title)}</a><div class="small ell">${esc(host(p.url))} · ${fmtDate(p.addedAt)}</div>${p.note ? `<div class="small note">${esc(p.note)}</div>` : ''}</div>${p.id === active ? '<span class="chip ok">Актуальное</span>' : ''}
+      ${ro ? '' : `<div class="fwrap"><button type="button" class="ws-dots" data-act="file-menu" aria-label="Действия со ссылкой портфолио">${icon('more_horiz')}</button>
+        <div class="fmenu"><a class="um-i" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${icon('link')} Открыть ссылку</a>
+          ${p.id === active ? '' : `<button type="button" class="um-i" data-act="portfolio-active" data-id="${p.id}">${icon('check_circle', 'ol')} Сделать актуальным</button>`}
+          <button type="button" class="um-i danger" data-act="portfolio-del" data-id="${p.id}" data-name="${esc(p.title)}">${icon('delete', 'ol')} Удалить</button></div></div>`}</div>`).join('')}</div>` : '<p class="small">Ссылок пока нет</p>'}
+    ${list.length > 1 ? '<p class="small hint">Прошлые версии сохраняются в истории</p>' : ''}</div>`;
 }
 
 // Строка файла: имя скачивает файл, троеточие открывает меню (скачать, сделать актуальным, удалить). Актуальный файл помечен чипом.
@@ -82,14 +86,14 @@ function fileRow(s, c, kind, ro, ic, activeId, word) {
 function cvCard(s, ro) {
   const list = [...s.cvs].reverse(), act = store.activeFileId(s, 'cvs');
   return `<div class="card"><div class="card-h"><h2 class="d-s">CV</h2>${ro ? '' : `<label class="pill ghost sm" for="cv-up" style="cursor:pointer">${icon('upload')} Загрузить новое</label><input id="cv-up" type="file" hidden accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt,.rtf">`}</div>
-    ${list.length ? `<div class="list">${list.map((c) => fileRow(s, c, 'cvs', ro, 'description', act, 'Актуальное')).join('')}</div>` : '<p class="small">CV пока не загружено.</p>'}</div>`;
+    ${list.length ? `<div class="list">${list.map((c) => fileRow(s, c, 'cvs', ro, 'description', act, 'Актуальное')).join('')}</div>` : '<p class="small">CV пока не загружено</p>'}</div>`;
 }
 
 // Договор виден только ментору: на публичной странице его нет (сервер его вообще не отдаёт).
 function contractCard(s) {
   const list = [...(s.contracts || [])].reverse(), act = store.activeFileId(s, 'contracts');
   return `<div class="card"><div class="card-h"><h2 class="d-s">Договор</h2><label class="pill ghost sm" for="ct-up" style="cursor:pointer">${icon('upload')} ${list.length ? 'Загрузить новый' : 'Загрузить'}</label><input id="ct-up" type="file" hidden accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt,.rtf"></div>
-    ${list.length ? `<div class="list">${list.map((c) => fileRow(s, c, 'contracts', false, 'contract', act, 'Актуальный')).join('')}</div>` : '<p class="small">Договор пока не загружен.</p>'}</div>`;
+    ${list.length ? `<div class="list">${list.map((c) => fileRow(s, c, 'contracts', false, 'contract', act, 'Актуальный')).join('')}</div>` : '<p class="small">Договор пока не загружен</p>'}</div>`;
 }
 
 // Отзыв после трудоустройства: ссылку отправляют менти, ответ появляется здесь.
@@ -98,18 +102,20 @@ const stars = (n) => `<span class="stars" aria-label="${n} из 5">${[1, 2, 3, 4
 function reviewCard(s) {
   const r = s.review, tok = rvTokens[s.id];
   return `<div class="card" id="rv-card"><div class="card-h"><h2 class="d-s">Отзыв</h2>${r ? `<span class="small">${fmtDate(r.date)}</span>` : ''}</div>
-    ${r ? `<div class="rv-stars">${stars(r.rating)}<b>${r.rating}/5</b></div>${r.comment ? `<p class="rv-text pre">${esc(r.comment)}</p>` : '<p class="small">Без комментария.</p>'}`
+    ${r ? `<div class="rv-stars">${stars(r.rating)}<b>${r.rating}/5</b></div>${r.comment ? `<p class="rv-text pre">${esc(r.comment)}</p>` : '<p class="small">Без комментария</p>'}`
       : `<p class="small" style="margin-bottom:14px">Отзыва пока нет. Отправьте менти ссылку: откроется страница, где можно поставить оценку и написать комментарий.</p>`}
     <div class="rv-link ${r ? 'sm' : ''}"><input class="field sm" id="rv-url" readonly placeholder="Создаём ссылку…" value="${tok ? esc(`${location.origin}/r/${tok}`) : ''}"><button type="button" class="pill ${r ? 'ghost' : 'dark'} sm" id="rv-copy" data-act="rv-copy" ${tok ? '' : 'disabled'}>${icon('content_copy')} Скопировать</button></div></div>`;
 }
 
-const tasksCard = (s, ro) => `<div class="card"><div class="card-h"><h2 class="d-s">Задачи</h2><span class="small">${s.tasks.filter((t) => t.done).length}/${s.tasks.length}</span></div>
-  <div class="tasks">${s.tasks.map((t) => `<div class="task ${t.done ? 'done' : ''}">${ro ? `<span class="tk">${t.done ? icon('check') : ''}</span>` : `<button class="tk" data-act="st-task" data-id="${t.id}" aria-label="Отметить">${t.done ? icon('check') : ''}</button>`}<span class="grow">${esc(t.text)}</span>${ro ? '' : `<button class="x" data-act="st-task-del" data-id="${t.id}" aria-label="Удалить">${icon('close')}</button>`}</div>`).join('') || '<p class="small">Нет задач.</p>'}</div>
+const taskText = (t, ro = false) => ro ? `<span class="grow">${esc(t.text)}</span>` : `<button type="button" class="grow task-text" data-act="st-task-edit" data-id="${t.id}" aria-label="Редактировать задачу: ${esc(t.text)}">${esc(t.text)}</button>`;
+const tasksCard = (s, ro) => `<div class="card" id="tasks-card"><div class="card-h"><h2 class="d-s">Задачи</h2><span class="small">${s.tasks.filter((t) => t.done).length}/${s.tasks.length}</span></div>
+  <div class="tasks">${s.tasks.map((t) => `<div class="task ${t.done ? 'done' : ''}">${ro ? `<span class="tk">${t.done ? icon('check') : ''}</span>` : `<button class="tk" data-act="st-task" data-id="${t.id}" aria-label="Отметить">${t.done ? icon('check') : ''}</button>`}${taskText(t, ro)}${ro ? '' : `<button class="x" data-act="st-task-del" data-id="${t.id}" aria-label="Удалить">${icon('close')}</button>`}</div>`).join('') || '<p class="small">Нет задач</p>'}</div>
   ${ro ? '' : `<form class="row add-row" id="task-form"><input class="field sm" name="text" placeholder="Новая задача для ученика" autocomplete="off" required><button class="pill dark sm" type="submit">Добавить</button></form>`}</div>`;
 
-const sessionsCard = (s, ro) => `<div class="card"><div class="card-h"><h2 class="d-s">Встречи и заметки</h2></div>
+const sessionsList = (s, ro) => `${[...s.sessions].sort((a, b) => b.date.localeCompare(a.date)).map((x) => `<div class="tl-i"><div class="row spread"><div class="tl-t">${fmtDate(x.date)}</div>${ro ? '' : `<button class="x" data-act="st-sess-del" data-id="${x.id}" aria-label="Удалить">${icon('close')}</button>`}</div><div class="tl-s pre">${esc(x.text)}</div></div>`).join('') || '<p class="small">Записей пока нет</p>'}`;
+const sessionsCard = (s, ro) => `<div class="card" id="sessions-card"><div class="card-h"><h2 class="d-s">Встречи и заметки</h2></div>
   ${ro ? '' : `<form class="col" id="session-form"><div class="row">${datePicker('date', today())}<button class="pill dark sm" type="submit" style="margin-left:auto">Записать</button></div><textarea class="field sm" name="text" rows="2" placeholder="О чём говорили, договорённости, что обсудить дальше" required></textarea></form>`}
-  <div class="tl" style="margin-top:${ro ? 0 : 20}px">${[...s.sessions].sort((a, b) => b.date.localeCompare(a.date)).map((x) => `<div class="tl-i"><div class="row spread"><div class="tl-t">${fmtDate(x.date)}</div>${ro ? '' : `<button class="x" data-act="st-sess-del" data-id="${x.id}" aria-label="Удалить">${icon('close')}</button>`}</div><div class="tl-s pre">${esc(x.text)}</div></div>`).join('') || '<p class="small">Записей пока нет.</p>'}</div></div>`;
+  <div class="tl" data-sessions-list style="margin-top:${ro ? 0 : 20}px">${sessionsList(s, ro)}</div></div>`;
 
 const privateCard = (s) => `<div class="card flat"><div class="card-h"><h2 class="d-s">${icon('lock')} Личная заметка</h2><span class="small">видите только вы</span></div>
   <textarea class="field" id="private-note" rows="4" placeholder="Сильные стороны, риски, на что обратить внимание…">${esc(s.privateNote)}</textarea></div>`;
@@ -121,9 +127,9 @@ export function studentPage(s, base, ro = false) {
   const show = (k) => !ro || s.shareOpts?.[k] !== false; // на публичной странице ментор мог скрыть разделы
   const now = latest(s), st = STATUSES[s.status] || STATUSES.active, g = growth(s);
   const av = ro ? avatar(s, 'xl') : `<label class="av-edit" for="av-up" title="Сменить фото">${avatar(s, 'xl')}<span class="av-cam">${icon('photo_camera')}</span></label><input id="av-up" type="file" accept="image/*" hidden>`;
-  return `<div class="hero"><div class="hero-l">${av}<div><h1 class="d-m">${esc(fullName(s))}</h1>
-      <div class="row wrap" style="margin:10px 0 6px"><span class="chip on">${esc(s.grade)}</span><span class="chip ${st.tone}">${st.label}</span>${show('competencies') ? `<span class="chip">${fmt1(total(now.scores))}/5 ${g === null ? '' : dChip(g)}</span>` : ''}</div>
-      <div class="muted">${esc(workLine(s))}</div></div></div>
+  return `<div class="hero"><div class="hero-l">${av}<div><div class="student-name"><h1 class="d-m">${esc(fullName(s))}</h1>${linkedInLink(s.linkedin)}</div>
+      <div class="muted student-description">${esc(workLine(s))}</div>
+      <div class="row wrap student-badges"><span class="chip on">${esc(s.grade)}</span><span class="chip ${st.tone}">${st.label}</span>${show('competencies') ? `<span class="chip">${fmt1(total(now.scores))}/5 ${g === null ? '' : dChip(g)}</span>` : ''}</div></div></div>
       ${ro ? (show('competencies') ? `<div class="row"><a class="pill dark" href="/s/${esc(token)}/assess">Оценить компетенции</a></div>` : '') : `<div class="row"><button class="pill ghost" data-act="st-share">${icon('ios_share')} Поделиться</button><button class="pill ghost" data-act="st-edit">${icon('edit')} Редактировать</button></div>`}</div>
     <div class="detail"><div class="col-main">${show('competencies') ? competenciesCard(s, now, base, ro) : ''}${show('history') ? historyCard(s, now, ro) : ''}${show('sessions') ? sessionsCard(s, ro) : ''}</div>
       <div class="col-side">${ro || s.status !== 'hired' ? '' : reviewCard(s)}${show('goal') ? goalCard(s, ro) : ''}${show('portfolio') ? portfolioCard(s, ro) : ''}${show('cv') ? cvCard(s, ro) : ''}${ro ? '' : contractCard(s)}${show('tasks') ? tasksCard(s, ro) : ''}${ro ? '' : privateCard(s)}</div></div>`;
@@ -144,8 +150,13 @@ export function studentView({ id }) {
     mount(root) {
       store.refreshSelf(id).then((changed) => { if (changed && location.pathname === `/student/${id}`) rerender(); }).catch(() => {});
       root.querySelector('#private-note').addEventListener('change', (e) => { store.updateStudent(id, { privateNote: e.target.value.trim() }); toast('Заметка сохранена'); });
-      root.querySelector('#task-form').addEventListener('submit', (e) => { e.preventDefault(); const t = new FormData(e.target).get('text'); if (t.trim()) { store.addTask(id, t); rerender(); } });
-      root.querySelector('#session-form').addEventListener('submit', (e) => { e.preventDefault(); const f = new FormData(e.target); store.addSession(id, { date: f.get('date'), text: f.get('text') }); toast('Запись добавлена'); rerender(); });
+      bindTaskForm(root, id);
+      root.querySelector('#session-form').addEventListener('submit', (e) => {
+        e.preventDefault(); const f = new FormData(e.target), text = f.get('text');
+        if (!text.trim()) return;
+        store.addSession(id, { date: f.get('date'), text });
+        refreshSessions(id); e.target.elements.text.value = ''; toast('Запись добавлена');
+      });
       root.querySelector('#av-up').addEventListener('change', async (e) => {
         const f = e.target.files[0]; if (!f) return;
         try { store.updateStudent(id, { avatar: await fileToAvatar(f) }); toast('Фото обновлено'); rerender(); } catch { toast('Не удалось прочитать изображение'); }
@@ -174,18 +185,74 @@ ACT['rv-copy'] = async () => {
   toast('Ссылка скопирована');
 };
 ACT['st-cmp'] = (el) => { cmp.base = el.dataset.id; rerender(); };
-ACT['st-task'] = (el) => { store.toggleTask(sid(el), el.dataset.id); rerender(); };
-ACT['st-task-del'] = (el) => { store.removeTask(sid(el), el.dataset.id); rerender(); };
-ACT['st-sess-del'] = async (el) => { if (await confirmDialog({ title: 'Удалить запись о встрече?', text: 'Запись исчезнет из истории.' })) { store.removeSession(sid(el), el.dataset.id); rerender(); } };
+// Изменения задач не пересоздают диаграммы и незаполненные формы профиля.
+function bindTaskForm(root, id) {
+  root.querySelector('#task-form').addEventListener('submit', (e) => {
+    e.preventDefault(); const text = new FormData(e.target).get('text');
+    if (text.trim()) { store.addTask(id, text); refreshTasks(id, { focus: true, clear: true }); }
+  });
+}
+function refreshTasks(id, { focus = false, clear = false } = {}) {
+  const card = document.getElementById('tasks-card');
+  if (!card) return;
+  const text = card.querySelector('[name=text]').value;
+  card.outerHTML = tasksCard(store.getStudent(id), false);
+  bindTaskForm(document, id);
+  const input = document.querySelector('#task-form [name=text]');
+  if (!clear) input.value = text;
+  if (focus) input.focus({ preventScroll: true });
+}
+ACT['st-task'] = (el) => { const id = sid(el); store.toggleTask(id, el.dataset.id); refreshTasks(id); };
+ACT['st-task-del'] = (el) => { const id = sid(el); store.removeTask(id, el.dataset.id); refreshTasks(id); };
+ACT['st-task-edit'] = (el) => {
+  const id = sid(el), t = store.getStudent(id)?.tasks.find((t) => t.id === el.dataset.id);
+  if (!t) return;
+  const input = document.createElement('input');
+  input.className = 'field sm task-input'; input.value = t.text;
+  input.setAttribute('aria-label', 'Текст задачи');
+  el.replaceWith(input);
+  let cancelled = false;
+  input.addEventListener('blur', () => {
+    const text = input.value.trim();
+    if (!cancelled && text && text !== t.text) store.updateTask(id, t.id, text);
+    // Меняем только текст: клик по чекбоксу или удалению должен попасть в ту же кнопку.
+    input.outerHTML = taskText(t);
+  }, { once: true });
+  input.addEventListener('keydown', (e) => {
+    if (e.isComposing) return;
+    if (e.key === 'Enter' || e.key === 'Escape') {
+      e.preventDefault(); cancelled = e.key === 'Escape'; input.blur();
+    }
+  });
+  input.focus(); input.select();
+};
+function refreshSessions(id) {
+  const list = document.querySelector('[data-sessions-list]'), s = store.getStudent(id);
+  if (list && s) list.innerHTML = sessionsList(s, false);
+}
+ACT['st-sess-del'] = async (el) => { if (await confirmDialog({ title: 'Удалить запись о встрече?', text: 'Запись исчезнет из истории' })) { const id = sid(el); store.removeSession(id, el.dataset.id); refreshSessions(id); } };
 ACT['file-menu'] = (el) => {
   const menu = el.parentElement.querySelector('.fmenu'), open = menu.classList.contains('on');
   document.querySelectorAll('.fmenu.on').forEach((m) => m.classList.remove('on')); if (!open) menu.classList.add('on');
 };
 const closeFileMenus = () => document.querySelectorAll('.fmenu.on').forEach((m) => m.classList.remove('on'));
+function refreshPortfolio(id) {
+  const card = document.getElementById('portfolio-card'), s = store.getStudent(id);
+  if (card && s) card.outerHTML = portfolioCard(s, false);
+}
+ACT['portfolio-active'] = (el) => {
+  const id = sid(el); closeFileMenus(); store.setActivePortfolio(id, el.dataset.id);
+  refreshPortfolio(id); toast('Портфолио теперь актуальное');
+};
+ACT['portfolio-del'] = async (el) => {
+  const id = sid(el), pid = el.dataset.id; closeFileMenus();
+  if (!(await confirmDialog({ title: 'Удалить ссылку на портфолио?', text: `«${el.dataset.name}» будет удалено из профиля` }))) return;
+  store.removePortfolio(id, pid); refreshPortfolio(id); toast('Ссылка удалена');
+};
 ACT['file-active'] = (el) => { closeFileMenus(); store.setActiveFile(sid(el), el.dataset.kind, el.dataset.id); toast('Файл теперь актуальный'); rerender(); };
 ACT['file-del'] = async (el) => {
   closeFileMenus();
-  if (!(await confirmDialog({ title: 'Удалить файл?', text: `«${el.dataset.name}» будет удалён без возможности восстановления.` }))) return;
+  if (!(await confirmDialog({ title: 'Удалить файл?', text: `«${el.dataset.name}» будет удалён без возможности восстановления` }))) return;
   try { await store.removeFile(sid(el), el.dataset.kind, el.dataset.id); toast('Файл удалён'); rerender(); } catch { toast('Не удалось удалить файл'); }
 };
 ACT['st-cv-dl'] = async (el) => {
@@ -194,7 +261,7 @@ ACT['st-cv-dl'] = async (el) => {
 };
 ACT['st-add-pf'] = (el) => {
   const id = sid(el);
-  openModal(`<h2 class="d-s">Новая версия портфолио</h2><p class="small" style="margin:6px 0 20px">Прежние ссылки останутся в истории.</p>
+  openModal(`<h2 class="d-s">Новая версия портфолио</h2><p class="small" style="margin:6px 0 20px">Прежние ссылки останутся в истории</p>
     <form class="col" id="pf-form"><div><label class="lbl">Ссылка *</label><input class="field" name="url" placeholder="behance.net/…, сайт, Notion, PDF" required></div>
     <div><label class="lbl">Название</label><input class="field" name="title" placeholder="Например: Сайт, версия 2"></div>
     <div><label class="lbl">Что изменилось</label><input class="field" name="note" placeholder="Добавил 2 кейса, переделал главную"></div>
@@ -203,7 +270,7 @@ ACT['st-add-pf'] = (el) => {
   (m, close) => m.querySelector('#pf-form').addEventListener('submit', (e) => {
     e.preventDefault(); const f = new FormData(e.target), url = safeUrl(f.get('url') || '');
     if (!url) { m.querySelector('#pf-err').classList.remove('hide'); return; }
-    store.addPortfolio(id, { url, title: f.get('title'), note: f.get('note') }); close(); toast('Портфолио добавлено'); rerender();
+    store.addPortfolio(id, { url, title: f.get('title'), note: f.get('note') }); close(); toast('Портфолио добавлено'); refreshPortfolio(id);
   }));
 };
 ACT['st-edit'] = (el) => {
@@ -213,6 +280,7 @@ ACT['st-edit'] = (el) => {
   openModal(`<h2 class="d-s" style="margin-bottom:20px">Редактировать ученика</h2><form class="col" id="ed-form">
     ${s.avatar ? `<div class="row">${avatar(s, 'lg')}<button type="button" class="pill ghost sm" id="ed-av-del">Убрать фото</button></div>` : ''}
     <div class="grid g2">${f('Имя', 'firstName', s.firstName)}${f('Фамилия', 'lastName', s.lastName)}</div>
+    ${f('LinkedIn', 'linkedin', s.linkedin || '', 'linkedin.com/in/…')}
     <div class="grid g2">${sel('Грейд', 'grade', GRADES.map((x) => [x, x]), s.grade)}${sel('Статус', 'status', Object.entries(STATUSES).map(([k, v]) => [k, v.label]), s.status)}</div>
     <div class="grid g2"><div>${f('Компания', 'company', s.company, '', 'text', s.jobless)}<label class="chk"><input type="checkbox" name="jobless" ${s.jobless ? 'checked' : ''}><span>Сейчас без работы</span></label></div>${f('Должность', 'role', s.role, '', 'text', s.jobless)}</div>
     <div class="divider" style="margin:4px 0"></div>
@@ -223,7 +291,8 @@ ACT['st-edit'] = (el) => {
     m.querySelector('#ed-form').addEventListener('submit', (e) => {
       e.preventDefault(); const d = Object.fromEntries(new FormData(e.target));
       if (!d.firstName.trim() || !d.lastName.trim()) { toast('Имя и фамилия обязательны'); return; }
-      store.updateStudent(id, { firstName: d.firstName.trim(), lastName: d.lastName.trim(), grade: d.grade, status: d.status, jobless: !!d.jobless, company: d.jobless ? '' : d.company.trim(), role: d.jobless ? '' : d.role.trim(),
+      if (d.linkedin.trim() && !linkedInUrl(d.linkedin)) { toast('Укажите ссылку на профиль LinkedIn'); return; }
+      store.updateStudent(id, { linkedin: linkedInUrl(d.linkedin) || '', firstName: d.firstName.trim(), lastName: d.lastName.trim(), grade: d.grade, status: d.status, jobless: !!d.jobless, company: d.jobless ? '' : d.company.trim(), role: d.jobless ? '' : d.role.trim(),
         goal: { position: d.targetRole.trim(), company: d.targetCompany.trim(), salary: d.salary ? Number(d.salary) : null, currency: d.currency, horizon: d.horizon } });
       close(); toast('Сохранено'); rerender();
     });
@@ -243,21 +312,43 @@ export function assessView({ id }) {
   return {
     shell: 'app', nav: 'students',
     html: `<div class="page view" style="padding-top:36px;padding-bottom:120px"><a class="back" href="/student/${s.id}">${icon('arrow_back')} ${esc(fullName(s))}</a>
-      <div class="eyebrow" style="margin-top:20px">Новая оценка</div><h1 class="d-m">Как изменился ${esc(s.firstName)}?</h1>
-      <p class="lede" style="margin:8px 0 28px">Значения подставлены из прошлой оценки (${fmtDate(prev.date)}). Измените то, что выросло — пунктир на диаграмме покажет, как было.</p>
-      <div class="skills-wrap"><div class="skills-col" id="as-skills">${skillsEditorHtml(scores, prev.scores)}
-        <div class="private"><label class="lbl">Комментарий к оценке</label><textarea class="field" id="as-comment" placeholder="Что изменилось, за счёт чего, над чем работаем дальше"></textarea></div>
+      <h1 class="d-m" style="margin-top:20px">Обновите компетенции</h1>
+      <p class="lede" style="margin:8px 0 20px">Значения подставлены из текущей оценки (${fmtDate(prev.date)}). Уточните навыки или сохраните новую переоценку, чтобы зафиксировать прогресс.</p>
+      <div class="assessment-mode"><label class="chk"><input type="checkbox" id="as-reassess"><span>Сохранить как переоценку</span></label>
+        <p class="small hint" id="as-mode-hint">Обновится текущая оценка: её дата сохранится, новой записи в истории не будет. Баллы пересчитаются по исправленным значениям.</p></div>
+      <div class="skills-wrap"><div class="skills-col" id="as-skills">${skillsEditorHtml(scores)}
+        <div class="private"><label class="lbl">Комментарий к оценке</label><textarea class="field" id="as-comment" placeholder="Что изменилось, за счёт чего, над чем работаем дальше">${esc(prev.comment)}</textarea></div>
         </div>
         <aside class="skills-side"><div class="card"><div id="as-radar"></div><div id="as-tiles"></div></div></aside></div></div>
-      <div class="stage-foot flat"><div class="in"><a class="pill ghost" href="/student/${s.id}">Отмена</a><button class="pill dark lg" id="as-save">Сохранить оценку</button></div></div>`,
+      <div class="stage-foot flat"><div class="in"><a class="pill ghost" href="/student/${s.id}">Отмена</a><button class="pill dark lg" id="as-save">Обновить текущую оценку</button></div></div>`,
     mount(root) {
-      const draw = () => { root.querySelector('#as-radar').innerHTML = radar([{ scores: prev.scores, kind: 'prev' }, { scores, kind: 'now' }]) + radarLegend(true, `Было · ${fmtDate(prev.date)}`, 'Стало'); root.querySelector('#as-tiles').innerHTML = scoreOrb(scores, prev.scores); };
+      const checkbox = root.querySelector('#as-reassess'), comment = root.querySelector('#as-comment');
+      const draw = () => {
+        // Исправление сравниваем с предыдущей записью истории, переоценку — с текущей.
+        const base = checkbox.checked ? prev : s.assessments[s.assessments.length - 2];
+        root.querySelector('#as-radar').innerHTML = radar([...(base ? [{ scores: base.scores, kind: 'prev' }] : []), { scores, kind: 'now' }]) + radarLegend(!!base, base ? `Было · ${fmtDate(base.date)}` : '', checkbox.checked ? 'Новая оценка' : 'Текущая оценка');
+        root.querySelector('#as-tiles').innerHTML = scoreOrb(scores, base?.scores);
+      };
       draw(); bindSkillsEditor(root.querySelector('#as-skills'), scores, draw);
+      let updateComment = prev.comment || '', reassessComment = '';
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) { updateComment = comment.value; comment.value = reassessComment; }
+        else { reassessComment = comment.value; comment.value = updateComment; }
+        root.querySelector('#as-save').textContent = checkbox.checked ? 'Сохранить переоценку' : 'Обновить текущую оценку';
+        root.querySelector('#as-mode-hint').textContent = checkbox.checked
+          ? 'Появится новая запись в истории с сегодняшней датой. Изменения войдут в динамику роста.'
+          : 'Обновится текущая оценка: её дата сохранится, новой записи в истории не будет. Баллы пересчитаются по исправленным значениям.';
+        draw();
+      });
       root.querySelector('#as-save').addEventListener('click', async () => {
         const same = SKILLS.every((k) => (scores[k.id] || 0) === (prev.scores[k.id] || 0));
-        if (same && !(await confirmDialog({ title: 'Оценки не изменились', text: 'Всё равно сохранить новую оценку?', ok: 'Сохранить', danger: false }))) return;
-        store.addAssessment(id, scores, root.querySelector('#as-comment').value); cmp = { id, base: prev.id };
-        toast('Оценка сохранена'); window.__go(`/student/${id}`);
+        if (checkbox.checked) {
+          if (same && !(await confirmDialog({ title: 'Оценки не изменились', text: 'Всё равно сохранить новую переоценку?', ok: 'Сохранить', danger: false }))) return;
+          store.addAssessment(id, scores, comment.value); cmp = { id, base: prev.id };
+        } else {
+          store.updateAssessment(id, prev.id, scores, comment.value);
+        }
+        toast(checkbox.checked ? 'Переоценка сохранена' : 'Текущая оценка обновлена'); window.__go(`/student/${id}`);
       });
     },
   };
@@ -289,7 +380,7 @@ ACT['st-share'] = (el) => {
     m.addEventListener('click', async (e) => {
       try {
         if (e.target.closest('#sh-on')) paint(await store.createShare(id));
-        else if (e.target.closest('#sh-off')) { if (await confirmDialog({ title: 'Отключить ссылку?', text: 'Те, у кого она есть, потеряют доступ.', ok: 'Отключить' })) { await store.revokeShare(id); paint(null); toast('Ссылка отключена'); } }
+        else if (e.target.closest('#sh-off')) { if (await confirmDialog({ title: 'Отключить ссылку?', text: 'Те, у кого она есть, потеряют доступ', ok: 'Отключить' })) { await store.revokeShare(id); paint(null); toast('Ссылка отключена'); } }
         else if (e.target.closest('#sh-copy')) {
           const inp = m.querySelector('#sh-url');
           try { await navigator.clipboard.writeText(inp.value); } catch { inp.select(); document.execCommand('copy'); }

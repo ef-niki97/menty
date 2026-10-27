@@ -10,7 +10,7 @@ const todayIso = () => { const t = new Date(); return iso(t.getFullYear(), t.get
 const label = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Выберите дату';
 
 export const datePicker = (name, value) => `<div class="dp" data-dp data-view="${esc((value || todayIso()).slice(0, 7))}"><input type="hidden" name="${name}" value="${esc(value)}">
-  <button type="button" class="field sm dp-btn" data-dp-toggle aria-haspopup="dialog">${icon('calendar_month', 'ol')}<span>${label(value)}</span></button><div class="dp-pop hide" role="dialog"></div></div>`;
+  <button type="button" class="field sm dp-btn" data-dp-toggle aria-haspopup="dialog">${icon('calendar_month', 'ol')}<span data-dp-label>${label(value)}</span>${icon('expand_more', 'dp-chevron')}</button><div class="dp-pop hide" role="dialog"></div></div>`;
 
 function render(dp) {
   const [y, m] = dp.dataset.view.split('-').map(Number), mi = m - 1;
@@ -34,6 +34,6 @@ document.addEventListener('click', (e) => {
   const nav = e.target.closest('[data-dp-nav]');
   if (nav) { const [y, m] = dp.dataset.view.split('-').map(Number), d = new Date(y, m - 1 + Number(nav.dataset.dpNav), 1); dp.dataset.view = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; render(dp); return; }
   const day = e.target.closest('[data-dp-day]');
-  if (day) { dp.querySelector('input').value = day.dataset.dpDay; dp.querySelector('.dp-btn span').textContent = label(day.dataset.dpDay); dp.dataset.view = day.dataset.dpDay.slice(0, 7); pop.classList.add('hide'); }
+  if (day) { dp.querySelector('input').value = day.dataset.dpDay; dp.querySelector('[data-dp-label]').textContent = label(day.dataset.dpDay); dp.dataset.view = day.dataset.dpDay.slice(0, 7); pop.classList.add('hide'); }
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAll(); });

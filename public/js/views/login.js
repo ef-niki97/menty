@@ -12,8 +12,8 @@ export function loginView() {
     html: `<div class="login view">
       <div class="login-l">
         <div class="login-logo">${logo(32)}</div>
-        <h1 class="d-l">Прогресс менти — <span class="muted">как на ладони</span></h1>
-        <p class="lede">Ведите учеников, оценивайте компетенции и смотрите, как меняется диаграмма от встречи к встрече.</p>
+        <h1 class="d-l">Прогресс менти <span class="muted">как на ладони</span></h1>
+        <p class="lede">Ведите учеников, оценивайте компетенции и смотрите, как меняется диаграмма от встречи к встрече</p>
         <div class="login-art card" aria-hidden="true">${radar([{ scores: before, kind: 'prev' }, { scores: demo, kind: 'now' }])}</div>
       </div>
       <div class="login-r">
@@ -22,7 +22,7 @@ export function loginView() {
           <p class="small" style="margin:6px 0 24px">Панель ментора</p>
           <div class="col" id="l-prov" style="gap:12px"><div class="small">Загрузка…</div></div>
           <div class="form-err hide" id="l-msg" role="alert">${icon('error')} <span></span></div>
-          <p class="legal-links">Входя, вы принимаете <a href="/terms" target="_blank" rel="noopener">условия использования</a> и <a href="/privacy" target="_blank" rel="noopener">политику конфиденциальности</a>.</p>
+          <p class="legal-links">Входя, вы принимаете <a href="/terms" target="_blank" rel="noopener">условия использования</a> и <a href="/privacy" target="_blank" rel="noopener">политику конфиденциальности</a></p>
           <details class="more hide" id="l-pw" style="margin-top:22px"><summary>Вход по паролю (администратор) ${icon('expand_more')}</summary>
             <form id="login-form" novalidate style="margin-top:14px">
               <label class="lbl" for="l-email">Почта</label>
@@ -39,8 +39,8 @@ export function loginView() {
     async mount(root) {
       const form = root.querySelector('#login-form'), err = root.querySelector('#l-err'), box = root.querySelector('#l-prov'), msg = root.querySelector('#l-msg');
       const q = new URLSearchParams(location.search), E = {
-        invite_required: 'Регистрация только по приглашению. Введите код приглашения и войдите снова.', invite_invalid: 'Код приглашения недействителен или уже использован.',
-        signup_closed: 'Новая регистрация сейчас закрыта.', auth_failed: 'Не удалось войти. Попробуйте ещё раз.', no_email: 'Провайдер не передал подтверждённую почту.', provider_disabled: 'Этот способ входа пока не подключён.', rate_limited: 'Слишком много попыток входа. Подождите минуту и попробуйте снова.',
+        invite_required: 'Регистрация только по приглашению. Введите код приглашения и войдите снова.', invite_invalid: 'Код приглашения недействителен или уже использован',
+        signup_closed: 'Новая регистрация сейчас закрыта', auth_failed: 'Не удалось войти. Попробуйте ещё раз.', no_email: 'Провайдер не передал подтверждённую почту', provider_disabled: 'Этот способ входа пока не подключён', rate_limited: 'Слишком много попыток входа. Подождите минуту и попробуйте снова.',
       };
       if (E[q.get('error')]) { msg.lastElementChild.textContent = E[q.get('error')]; msg.classList.remove('hide'); }
       const G = '<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>';
@@ -50,7 +50,7 @@ export function loginView() {
         const btn = (k, label, svg) => `<a class="pill ghost lg prov" href="/api/auth/${k}/start" data-prov>${svg} ${label}</a>`;
         box.innerHTML = `${pv.google ? btn('google', 'Войти через Google', G) : ''}${pv.yandex ? btn('yandex', 'Войти через Яндекс', Y) : ''}
           ${(pv.google || pv.yandex) && pv.signup === 'invite' ? `<div><label class="lbl" for="l-invite" style="margin-top:6px">Код приглашения (для нового аккаунта)</label><input class="field lg" id="l-invite" placeholder="Если вы здесь впервые" autocomplete="off" value="${esc(invite)}"></div>` : ''}
-          ${pv.google || pv.yandex ? '' : '<div class="small">Вход пока не подключён.</div>'}`;
+          ${pv.google || pv.yandex ? '' : '<div class="small">Вход пока не подключён</div>'}`;
         if (pv.password) { const d = root.querySelector('#l-pw'); d.classList.remove('hide'); if (!pv.google && !pv.yandex) d.open = true; }
         const sync = () => { const code = (root.querySelector('#l-invite')?.value || '').trim(); root.querySelectorAll('[data-prov]').forEach((a) => { a.href = a.getAttribute('href').split('?')[0] + (code ? `?invite=${encodeURIComponent(code)}` : ''); }); };
         root.querySelector('#l-invite')?.addEventListener('input', sync); sync();

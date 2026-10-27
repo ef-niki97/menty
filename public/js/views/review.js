@@ -13,7 +13,7 @@ export function reviewView({ token }) {
       const main = root.querySelector('#rv-main');
       let d;
       try { d = await api('GET', `/review/${encodeURIComponent(token)}`); }
-      catch (e) { main.innerHTML = e.status === 429 ? msg('hourglass_empty', 'Слишком много запросов', 'Подождите минуту и обновите страницу.') : e.status === 404 ? msg('link_off', 'Ссылка недействительна', 'Попросите ментора прислать новую ссылку.') : msg('cloud_off', 'Не удалось загрузить', 'Проверьте соединение и обновите страницу.'); return; }
+      catch (e) { main.innerHTML = e.status === 429 ? msg('hourglass_empty', 'Слишком много запросов', 'Подождите минуту и обновите страницу') : e.status === 404 ? msg('link_off', 'Ссылка недействительна', 'Попросите ментора прислать новую ссылку') : msg('cloud_off', 'Не удалось загрузить', 'Проверьте соединение и обновите страницу'); return; }
       let rating = d.review?.rating || 0, comment = d.review?.comment || '', sent = !!d.review;
       const showForm = () => {
         main.innerHTML = `<div class="rv-form"><div class="row" style="gap:14px;margin-bottom:18px">${avatar(d, 'lg')}<div><div class="eyebrow">Отзыв о менторстве</div><h1 class="d-m">Как всё прошло?</h1></div></div>
@@ -32,8 +32,8 @@ export function reviewView({ token }) {
         });
       };
       const showThanks = () => {
-        main.innerHTML = `<div class="ty"><span class="ty-heart" id="ty-heart" aria-hidden="true"><span class="i">favorite</span></span>
-          <h1 class="d-m">Спасибо за отзыв!</h1><p class="lede">Он уже у вашего ментора.</p>
+        main.innerHTML = `<div class="ty"><span class="ty-heart" id="ty-heart" aria-hidden="true">${icon('favorite')}</span>
+          <h1 class="d-m">Спасибо за отзыв!</h1><p class="lede">Он уже у вашего ментора</p>
           <button type="button" class="pill dark lg" id="ty-edit">Изменить отзыв</button></div>`;
         main.querySelector('#ty-edit').addEventListener('click', showForm);
         fireworks(main.querySelector('#ty-heart'));

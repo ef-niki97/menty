@@ -9,7 +9,7 @@ import { studentPage, defaultBase } from './student.js';
 
 // Публичная страница профиля по ссылке: только просмотр, без входа, кнопок и личной заметки ментора.
 const msg = (ic, t, sub) => `<div class="empty">${icon(ic, 'ol')}<h2 class="d-s" style="justify-content:center">${t}</h2><p>${sub}</p></div>`;
-const bad = (e) => e.status === 429 ? msg('hourglass_empty', 'Слишком много запросов', 'Подождите минуту и обновите страницу.') : e.status === 404 ? msg('link_off', 'Ссылка недействительна', 'Возможно, доступ был отключён. Попросите ментора прислать новую ссылку.') : msg('cloud_off', 'Не удалось загрузить', 'Проверьте соединение и обновите страницу.');
+const bad = (e) => e.status === 429 ? msg('hourglass_empty', 'Слишком много запросов', 'Подождите минуту и обновите страницу') : e.status === 404 ? msg('link_off', 'Ссылка недействительна', 'Возможно, доступ был отключён. Попросите ментора прислать новую ссылку.') : msg('cloud_off', 'Не удалось загрузить', 'Проверьте соединение и обновите страницу');
 
 export function shareView({ token }) {
   return {
@@ -38,7 +38,7 @@ export function shareAssessView({ token }) {
     async mount(root) {
       const main = root.querySelector('#sa-main');
       let s; try { s = await api('GET', `/share/${encodeURIComponent(token)}`); } catch (e) { main.innerHTML = bad(e); return; }
-      if (s.shareOpts?.competencies === false) { main.innerHTML = msg('block', 'Оценка недоступна', 'Ментор отключил оценку компетенций по этой ссылке.'); return; }
+      if (s.shareOpts?.competencies === false) { main.innerHTML = msg('block', 'Оценка недоступна', 'Ментор отключил оценку компетенций по этой ссылке'); return; }
       Object.assign(scores, selfLatest(s)?.scores || {});
       main.innerHTML = `<a class="back" href="/s/${esc(token)}">${icon('arrow_back')} К профилю</a>
         <div class="eyebrow" style="margin-top:20px">Самооценка</div><h1 class="d-m">Оцените свои компетенции</h1>

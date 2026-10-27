@@ -35,7 +35,6 @@
   --dur-1: 200ms; --dur-2: 350ms;
 
   --font: "Inter", system-ui, -apple-system, sans-serif;
-  --font-icon: "Material Symbols Rounded";
   --display-l: 700 56px/1.05 var(--font);
   --display-m: 700 40px/1.1 var(--font);
   --display-s: 600 28px/1.18 var(--font);

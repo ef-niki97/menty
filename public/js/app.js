@@ -8,6 +8,7 @@ import { wizardView } from './views/wizard.js';
 import { studentView, assessView } from './views/student.js';
 import { shareView, shareAssessView } from './views/share.js';
 import { reviewView } from './views/review.js';
+import './dropdown.js';
 
 // [шаблон пути, экран, нужна ли авторизация]
 const routes = [
@@ -102,7 +103,7 @@ ACT.invites = async () => {
   async (m) => {
     const list = m.querySelector('#iv-list');
     const paint = async () => {
-      try { const rows = await api('GET', '/invites'); list.innerHTML = rows.map((r) => `<div class="row" style="gap:8px">${r.usedBy ? `<span class="small grow ell">Использовано: ${esc(r.usedBy)}</span>` : `<input class="field sm" readonly value="${esc(link(r.code))}" style="flex:1;min-width:0"><button type="button" class="pill ghost sm" data-copy="${esc(r.code)}">Скопировать</button><button type="button" class="x" style="opacity:1" data-del="${esc(r.code)}" aria-label="Удалить">${icon('close')}</button>`}</div>`).join('') || '<p class="small">Пока нет приглашений.</p>'; }
+      try { const rows = await api('GET', '/invites'); list.innerHTML = rows.map((r) => `<div class="row" style="gap:8px">${r.usedBy ? `<span class="small grow ell">Использовано: ${esc(r.usedBy)}</span>` : `<input class="field sm" readonly value="${esc(link(r.code))}" style="flex:1;min-width:0"><button type="button" class="pill ghost sm" data-copy="${esc(r.code)}">Скопировать</button><button type="button" class="x" style="opacity:1" data-del="${esc(r.code)}" aria-label="Удалить">${icon('close')}</button>`}</div>`).join('') || '<p class="small">Пока нет приглашений</p>'; }
       catch { list.innerHTML = '<div class="form-err">Не удалось загрузить</div>'; }
     };
     await paint();
@@ -147,13 +148,13 @@ ACT['ws-rename'] = (el) => {
 ACT['ws-del'] = async (el) => {
   const w = workspaces().find((x) => x.id === el.dataset.id); if (!w) return;
   if (workspaces().length <= 1) { toast('Нельзя удалить единственный воркспейс'); return; }
-  if (allStudents().some((s) => s.workspaceId === w.id)) { toast('В воркспейсе есть ученики — сначала удалите их'); return; }
-  if (!(await confirmDialog({ title: `Удалить воркспейс «${w.name}»?`, text: 'Воркспейс должен быть пустым.' }))) return;
+  if (allStudents().some((s) => s.workspaceId === w.id)) { toast('В воркспейсе есть ученики, сначала удалите их'); return; }
+  if (!(await confirmDialog({ title: `Удалить воркспейс «${w.name}»?`, text: 'Воркспейс должен быть пустым' }))) return;
   try { await deleteWorkspace(w.id); toast('Воркспейс удалён'); go('/students'); } catch { toast('Не удалось удалить воркспейс'); }
 };
 ACT['ws-new'] = () => {
   $('#wsmenu')?.classList.remove('on');
-  openModal(`<h2 class="d-s">Новый воркспейс</h2><p class="small" style="margin:6px 0 20px">Воркспейс — отдельное пространство со своим списком учеников, например группа или поток.</p>
+  openModal(`<h2 class="d-s">Новый воркспейс</h2><p class="small" style="margin:6px 0 20px">Воркспейс: отдельное пространство со своим списком учеников, например группа или поток</p>
     <form class="col" id="ws-form"><div><label class="lbl">Название</label><input class="field" name="name" maxlength="60" placeholder="Например: Поток осень 2026" autocomplete="off" data-1p-ignore data-lpignore="true" required></div>
     <div class="row spread" style="margin-top:8px"><button type="button" class="pill ghost" data-close>Отмена</button><button class="pill dark" type="submit">Создать</button></div></form>`,
   (m, close) => m.querySelector('#ws-form').addEventListener('submit', async (e) => {
@@ -166,7 +167,7 @@ ACT.logout = async () => { await logout(); resetStore(); go('/login'); };
 ACT.backup = () => { downloadBlob(new Blob([exportJson()], { type: 'application/json' }), `menty-backup-${today()}.json`); toast('Копия скачана. Файлы CV в неё не входят'); $('#umenu')?.classList.remove('on'); };
 async function onRestore(e) {
   const f = e.target.files[0]; if (!f) return;
-  if (!(await confirmDialog({ title: 'Восстановить из копии?', text: 'Текущие данные будут заменены данными из файла.', ok: 'Восстановить' }))) { e.target.value = ''; return; }
+  if (!(await confirmDialog({ title: 'Восстановить из копии?', text: 'Текущие данные будут заменены данными из файла', ok: 'Восстановить' }))) { e.target.value = ''; return; }
   f.text().then(importJson).then(() => { toast('Данные восстановлены'); go('/students'); }).catch(() => toast('Не удалось восстановить данные из файла'));
 }
 

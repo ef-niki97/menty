@@ -5,7 +5,7 @@ const A = (n, scores, comment) => ({ id: uidNew(), date: day(n), scores, comment
 
 // Демо-ученики, чтобы было что смотреть. Загружаются кнопкой на пустом экране.
 export function demoStudents() {
-  const mk = (o) => ({ id: uidNew(), createdAt: day(o.age), updatedAt: day(o.upd), status: 'active', cvs: [], sessions: [], tasks: [], privateNote: '', ...o });
+  const mk = (o) => ({ id: uidNew(), createdAt: day(o.age), updatedAt: day(o.upd), status: 'active', result: 'progress', cvs: [], sessions: [], tasks: [], privateNote: '', ...o });
   return [
     mk({ firstName: 'Анна', lastName: 'Соколова', grade: 'Junior+', company: 'Студия Pixel', role: 'Junior-дизайнер', age: 120, upd: 3,
       goal: { position: 'Middle Product Designer', company: 'Продуктовая компания / финтех', salary: 180000, currency: '₽', horizon: '9' },
@@ -27,7 +27,7 @@ export function demoStudents() {
         A(45, { visual: 3, typo: 2, ux: 1, proto: 2, ds: 1, product: 1, comm: 2, pitch: 2, feedback: 3, time: 2, team: 2, prompt: 1, ai_research: 1, ai_visual: 2, ai_proto: 1, ai_flow: 1 }, 'Первичная оценка'),
         A(12, { visual: 3, typo: 3, ux: 2, proto: 3, ds: 1, product: 1, comm: 3, pitch: 2, feedback: 3, time: 2, team: 3, prompt: 2, ai_research: 1, ai_visual: 3, ai_proto: 1, ai_flow: 1 }, ''),
       ] }),
-    mk({ firstName: 'Елена', lastName: 'Волкова', grade: 'Middle', company: 'Яндекс', role: 'Дизайнер интерфейсов', age: 200, upd: 1, status: 'hired',
+    mk({ firstName: 'Елена', lastName: 'Волкова', grade: 'Middle', company: 'Яндекс', role: 'Дизайнер интерфейсов', age: 200, upd: 1, status: 'done', result: 'hired',
       goal: { position: 'Senior Product Designer', company: 'Международный продукт', salary: 4500, currency: '$', horizon: '12' },
       portfolios: [{ id: uidNew(), url: 'https://elena-volkova.design', title: 'Основное портфолио', note: '', addedAt: day(200) }],
       assessments: [A(200, { visual: 4, typo: 4, ux: 3, proto: 4, ds: 4, product: 3, comm: 4, pitch: 4, feedback: 4, time: 4, team: 4, prompt: 2, ai_research: 2, ai_visual: 2, ai_proto: 1, ai_flow: 1 }, 'Первичная оценка')] }),

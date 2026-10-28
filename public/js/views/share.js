@@ -15,7 +15,7 @@ export function shareView({ token }) {
   return {
     shell: 'bare',
     html: `<div class="share view"><header class="share-top">${logo(26)}<span class="chip">${icon('visibility')} Только просмотр</span></header>
-      <main class="page" id="sh-main" style="padding-top:28px"><div class="empty">Загрузка…</div></main><p class="legal-links" style="text-align:center;margin:40px 0 24px"><a href="/terms" target="_blank" rel="noopener">Условия</a> · <a href="/privacy" target="_blank" rel="noopener">Политика конфиденциальности</a></p></div>`,
+      <main class="page" id="sh-main" style="padding-top:28px"><div class="empty">Загрузка…</div></main></div>`,
     async mount(root) {
       const main = root.querySelector('#sh-main');
       try {
@@ -34,10 +34,11 @@ export function shareAssessView({ token }) {
   return {
     shell: 'bare',
     html: `<div class="share view"><header class="share-top">${logo(26)}<span class="chip">${icon('edit_note')} Самооценка</span></header>
-      <main class="page" id="sa-main" style="padding-top:28px;padding-bottom:120px"><div class="empty">Загрузка…</div></main></div>`,
+      <main class="page" id="sa-main" style="padding-top:28px;padding-bottom:32px"><div class="empty">Загрузка…</div></main></div>`,
     async mount(root) {
       const main = root.querySelector('#sa-main');
       let s; try { s = await api('GET', `/share/${encodeURIComponent(token)}`); } catch (e) { main.innerHTML = bad(e); return; }
+      if (!main.isConnected) return;
       if (s.shareOpts?.competencies === false) { main.innerHTML = msg('block', 'Оценка недоступна', 'Ментор отключил оценку компетенций по этой ссылке'); return; }
       Object.assign(scores, selfLatest(s)?.scores || {});
       main.innerHTML = `<a class="back" href="/s/${esc(token)}">${icon('arrow_back')} К профилю</a>
@@ -46,7 +47,7 @@ export function shareAssessView({ token }) {
         <div class="skills-wrap"><div class="skills-col" id="sa-skills">${skillsEditorHtml(scores)}
           </div>
           <aside class="skills-side"><div class="card"><div id="sa-radar"></div><div id="sa-tiles"></div></div></aside></div>`;
-      root.insertAdjacentHTML('beforeend', /* вне .view: анимация появления создаёт свой контекст для fixed */ `<div class="stage-foot flat"><div class="in"><a class="pill ghost" href="/s/${esc(token)}">Отмена</a><button class="pill dark lg" id="sa-send">Отправить оценку</button></div></div>`);
+      root.querySelector('.app-content').insertAdjacentHTML('beforeend', /* панель действий перед общим футером */ `<div class="stage-foot flat"><div class="in"><a class="pill ghost" href="/s/${esc(token)}">Отмена</a><button class="pill dark lg" id="sa-send">Отправить оценку</button></div></div>`);
       const draw = () => { main.querySelector('#sa-radar').innerHTML = radar([{ scores, kind: 'now' }]) + radarLegend(false, '', 'Ваша оценка'); main.querySelector('#sa-tiles').innerHTML = scoreOrb(scores); };
       draw(); bindSkillsEditor(main.querySelector('#sa-skills'), scores, draw);
       root.querySelector('#sa-send').addEventListener('click', async (e) => {

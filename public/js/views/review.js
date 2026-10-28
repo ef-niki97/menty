@@ -8,7 +8,7 @@ export function reviewView({ token }) {
   return {
     shell: 'bare',
     html: `<div class="share view"><header class="share-top">${logo(26)}<span class="chip">${icon('star')} Отзыв</span></header>
-      <main class="page" id="rv-main" style="padding-top:28px"><div class="empty">Загрузка…</div></main><p class="legal-links" style="text-align:center;margin:40px 0 24px"><a href="/terms" target="_blank" rel="noopener">Условия</a> · <a href="/privacy" target="_blank" rel="noopener">Политика конфиденциальности</a></p></div>`,
+      <main class="page" id="rv-main" style="padding-top:28px"><div class="empty">Загрузка…</div></main></div>`,
     async mount(root) {
       const main = root.querySelector('#rv-main');
       let d;

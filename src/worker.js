@@ -1,3 +1,5 @@
+import { requestTiming } from './request-timing.js';
+
 // Menty API: многопользовательский сервис. Вход через Google и Яндекс (плюс пароль администратора как запасной),
 // данные каждого ментора изолированы по owner_id, файлы лежат в R2 (старые — кусками в D1). Структуру базы создают миграции из папки migrations/.
 // Статику сайта отдаёт сам Cloudflare (см. [assets] в wrangler.toml).
@@ -24,7 +26,7 @@ function publicView(doc, opts) {
   const { privateNote, contracts, workspaceId, review, ...st } = doc;
   const list = Array.isArray(st.assessments) && st.assessments.length ? st.assessments : [{ id: 'none', date: st.createdAt, scores: {}, comment: '' }];
   if (!opts.competencies) { st.assessments = [{ id: list[list.length - 1].id, date: list[list.length - 1].date, scores: {}, comment: '' }]; st.selfAssessments = []; }
-  else if (!opts.history) st.assessments = list.slice(-1);
+  else if (!opts.history) { st.assessments = list.slice(-1); st.selfAssessments = (st.selfAssessments || []).slice(-1); }
   if (!opts.goal) st.goal = { position: '', company: '', salary: null, currency: '₽', horizon: '' };
   if (!opts.portfolio) st.portfolios = [];
   if (!opts.cv) st.cvs = [];
@@ -143,7 +145,24 @@ async function deleteFile(env, owner, id) {
   ]);
 }
 
-const validDoc = (d) => d && typeof d === 'object' && !Array.isArray(d) && typeof d.id === 'string' && ID_RE.test(d.id);
+const object = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const dated = (v) => typeof v === 'string' && Number.isFinite(Date.parse(v));
+const identified = (v) => object(v) && typeof v.id === 'string' && ID_RE.test(v.id);
+const optionalStrings = (v, keys) => keys.every((k) => v[k] === undefined || typeof v[k] === 'string');
+// Reject damaged backups before they can replace a profile and break the whole list.
+const validDoc = (d) => identified(d)
+  && typeof d.firstName === 'string' && !!d.firstName.trim() && typeof d.lastName === 'string' && !!d.lastName.trim()
+  && typeof d.grade === 'string' && dated(d.createdAt) && dated(d.updatedAt)
+  && optionalStrings(d, ['company', 'role', 'linkedin', 'avatar', 'privateNote'])
+  && object(d.goal) && optionalStrings(d.goal, ['position', 'company', 'currency', 'horizon'])
+  && ['portfolios', 'cvs', 'sessions', 'tasks', 'assessments'].every((k) => Array.isArray(d[k]) && d[k].every(identified))
+  && (d.contracts === undefined || Array.isArray(d.contracts) && d.contracts.every(identified))
+  && d.assessments.length > 0 && d.assessments.every((a) => dated(a.date) && object(a.scores)
+    && Object.entries(a.scores).every(([k, v]) => Number.isInteger(v) && v >= 0 && v <= (a.v === 2 && !isAi(k) ? 10 : 5))
+    && optionalStrings(a, ['comment']))
+  && d.tasks.every((v) => typeof v.text === 'string')
+  && d.sessions.every((v) => dated(v.date) && typeof v.text === 'string')
+  && d.portfolios.every((v) => typeof v.url === 'string' && typeof v.title === 'string');
 const upsert = (env, owner, d) => env.DB.prepare('INSERT INTO students (owner_id, id, data, updated_at) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(owner_id, id) DO UPDATE SET data = ?3, updated_at = ?4')
   .bind(owner, d.id, JSON.stringify(d), new Date().toISOString());
 
@@ -151,7 +170,8 @@ async function readJson(req, limit = MAX_DOC) {
   if (!(req.headers.get('content-type') || '').includes('application/json')) throw new Response('bad content-type', { status: 415 });
   const text = await req.text();
   if (text.length > limit) throw new Response('too large', { status: 413 });
-  try { return JSON.parse(text); } catch { throw new Response('bad json', { status: 400 }); }
+  try { const data = JSON.parse(text); if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Expected object'); return data; }
+  catch { throw new Response('bad json', { status: 400 }); }
 }
 
 // ---------- вход через Google и Яндекс (OAuth 2.0 с PKCE) ----------
@@ -201,7 +221,7 @@ async function resolveUser(env, provider, prof, invite) {
   return { user };
 }
 
-async function oauth(req, env, url, name, step) {
+async function oauth(req, env, url, name, step, timing) {
   const cfg = PROVIDERS[name];
   if (!providerOn(env, name)) return redirect('/login?error=provider_disabled');
   const id = env[cfg.idKey], secret = env[cfg.secretKey], redirectUri = `${url.origin}/api/auth/${name}/callback`;
@@ -219,19 +239,25 @@ async function oauth(req, env, url, name, step) {
   try {
     const body = new URLSearchParams({ grant_type: 'authorization_code', code, client_id: id, client_secret: secret, code_verifier: verifier });
     if (cfg.redirectInToken) body.set('redirect_uri', redirectUri);
-    const tr = await fetch(cfg.token, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' }, body });
-    const tok = tr.ok ? await tr.json() : null; if (!tok?.access_token) return redirect('/login?error=auth_failed', [clear]);
-    const ir = await fetch(cfg.info, { headers: { authorization: cfg.authHeader(tok.access_token), accept: 'application/json' } });
-    if (!ir.ok) return redirect('/login?error=auth_failed', [clear]);
-    prof = cfg.profile(await ir.json());
+    const tok = await timing.measure('oauth_token', async () => {
+      const tr = await fetch(cfg.token, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' }, body });
+      return tr.ok ? tr.json() : null;
+    });
+    if (!tok?.access_token) return redirect('/login?error=auth_failed', [clear]);
+    prof = await timing.measure('oauth_profile', async () => {
+      const ir = await fetch(cfg.info, { headers: { authorization: cfg.authHeader(tok.access_token), accept: 'application/json' } });
+      return ir.ok ? cfg.profile(await ir.json()) : null;
+    });
+    if (!prof) return redirect('/login?error=auth_failed', [clear]);
   } catch (e) { console.error(e); return redirect('/login?error=auth_failed', [clear]); }
   if (!prof?.id || !prof.email) return redirect('/login?error=no_email', [clear]);
-  const res = await resolveUser(env, name, prof, cleanInvite(invite));
+  const res = await timing.measure('user_db', () => resolveUser(env, name, prof, cleanInvite(invite)));
   if (res.error) return redirect(`/login?error=${res.error}`, [clear]);
-  return redirect('/students', [cookie(COOKIE, await createSession(env, res.user.id), SESSION_DAYS * 86400), clear]);
+  const session = await timing.measure('session_db', () => createSession(env, res.user.id));
+  return redirect('/students', [cookie(COOKIE, session, SESSION_DAYS * 86400), clear]);
 }
 
-async function route(req, env, url) {
+async function route(req, env, url, timing) {
   const { pathname: p } = url, m = req.method, ip = req.headers.get('cf-connecting-ip') || 'unknown';
   // вход: не больше AUTH_LIMIT попыток в минуту с одного адреса
   if ((p.startsWith('/api/auth/') && p !== '/api/auth/providers') || p === '/api/login') {
@@ -241,7 +267,7 @@ async function route(req, env, url) {
   // ----- вход и выход -----
   if (p === '/api/auth/providers' && m === 'GET') return json({ google: providerOn(env, 'google'), yandex: providerOn(env, 'yandex'), password: allowPassword(env), signup: signupMode(env) });
   const oa = p.match(/^\/api\/auth\/(google|yandex)\/(start|callback)$/);
-  if (oa && m === 'GET') return oauth(req, env, url, oa[1], oa[2]);
+  if (oa && m === 'GET') return oauth(req, env, url, oa[1], oa[2], timing);
 
   if (p === '/api/login' && m === 'POST') { // запасной вход администратора по паролю (по умолчанию выключен)
     if (!allowPassword(env)) return fail(404, 'Не найдено');
@@ -283,6 +309,7 @@ async function route(req, env, url) {
       if (!Number.isInteger(rating) || rating < 1 || rating > 5) return fail(400, 'Поставьте оценку от 1 до 5');
       if (comment !== undefined && typeof comment !== 'string') return fail(400, 'Некорректный комментарий');
       doc.review = { rating, comment: (comment || '').trim().slice(0, 2000), date: new Date().toISOString() };
+      doc.updatedAt = doc.review.date;
       await upsert(env, row.owner_id, doc).run();
       return json({ ok: true });
     }
@@ -306,12 +333,13 @@ async function route(req, env, url) {
     if (!parseOpts(row.opts).competencies) return fail(403, 'Оценка по этой ссылке отключена');
     const doc = JSON.parse(row.data);
     doc.selfAssessments = [...(Array.isArray(doc.selfAssessments) ? doc.selfAssessments : []), { id: newToken(), date: new Date().toISOString(), scores: clean }].slice(-20);
+    doc.updatedAt = doc.selfAssessments.at(-1).date;
     await upsert(env, row.owner_id, doc).run();
     return json({ ok: true });
   }
 
   // ----- дальше только для вошедших; все запросы ограничены данными владельца -----
-  const user = await getUser(req, env);
+  const user = await timing.measure('session_lookup', () => getUser(req, env));
   if (!user) return fail(401, 'Требуется вход');
   const owner = user.id;
   if (await limited(env, 'API_LIMIT', owner)) return tooMany(); // на аккаунт, чтобы сбойный клиент или скрипт не завалил базу
@@ -358,9 +386,11 @@ async function route(req, env, url) {
   }
 
   if (p === '/api/workspaces' && m === 'GET') {
-    await defaultWs(env, owner);
-    const { results } = await env.DB.prepare('SELECT id, name, created_at FROM workspaces WHERE owner_id = ?1 ORDER BY created_at, rowid').bind(owner).all();
-    return json(results.map(wsOut));
+    return timing.measure('workspaces_db', async () => {
+      await defaultWs(env, owner);
+      const { results } = await env.DB.prepare('SELECT id, name, created_at FROM workspaces WHERE owner_id = ?1 ORDER BY created_at, rowid').bind(owner).all();
+      return json(results.map(wsOut));
+    });
   }
   if (p === '/api/workspaces' && m === 'POST') {
     const name = wsName((await readJson(req, 4096)).name); if (!name) return fail(400, 'Введите название (до 60 символов)');
@@ -387,8 +417,10 @@ async function route(req, env, url) {
   }
 
   if (p === '/api/students' && m === 'GET') {
-    const { results } = await env.DB.prepare('SELECT data FROM students WHERE owner_id = ?1').bind(owner).all();
-    return json(results.map((r) => JSON.parse(r.data)));
+    return timing.measure('students_db', async () => {
+      const { results } = await env.DB.prepare('SELECT data FROM students WHERE owner_id = ?1').bind(owner).all();
+      return json(results.map((r) => JSON.parse(r.data)));
+    });
   }
   if (p === '/api/students' && m === 'POST') {
     const d = await readJson(req); if (!validDoc(d)) return fail(400, 'Некорректные данные');
@@ -515,7 +547,10 @@ export default {
     const u = new URL(req.url);
     if (u.hostname === 'www.menty.work') { u.hostname = 'menty.work'; return Response.redirect(u.toString(), 308); } // единый адрес: www → без www
     if (!env.ADMIN_EMAIL) return fail(500, 'Не задан ADMIN_EMAIL');
-    try { return await route(req, env, new URL(req.url)); }
-    catch (e) { if (e instanceof Response) return e; console.error(e); return fail(500, 'Ошибка сервера'); }
+    const timing = requestTiming(req);
+    let response;
+    try { response = await route(req, env, u, timing); }
+    catch (e) { if (e instanceof Response) response = e; else { console.error(e); response = fail(500, 'Ошибка сервера'); } }
+    return timing.finish(response);
   },
 };

@@ -41,7 +41,7 @@ export function radar(series, { max = 5 } = {}) {
   const order = [...series].sort((a) => (a.kind === 'prev' ? -1 : 1));
   const layers = order.map((s) => {
     const isNow = s.kind !== 'prev';
-    const dots = isNow ? SKILLS.map((k, i) => { const v = s.scores?.[k.id] || 0; if (!v) return ''; const [x, y] = pt(i, v); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="#fff" stroke="var(--ink)" stroke-width="2.2"><title>${esc(k.label)}: ${LEVELS[v]} (${v}/${max})</title></circle>`; }).join('') : '';
+    const dots = isNow ? SKILLS.map((k, i) => { const v = s.scores?.[k.id] || 0; if (!v) return ''; const [x, y] = pt(i, v); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="#fff" stroke="var(--ink)" stroke-width="2.2"><title>${esc(k.label)}: ${LEVELS[v] ? `${LEVELS[v]} (${v}/${max})` : `${fmt1(v)}/${max}`}</title></circle>`; }).join('') : '';
     if (!poly(s.scores)) return '';
     return isNow
       ? `<polygon class="r-now" points="${poly(s.scores)}" fill="rgba(17,17,19,.13)" stroke="var(--ink)" stroke-width="2.6" stroke-linejoin="round"/>${dots}`

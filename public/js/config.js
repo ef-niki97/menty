@@ -5,9 +5,19 @@ export const GRADES = ['Стажёр', 'Junior', 'Junior+', 'Middle', 'Middle+',
 export const STATUSES = {
   active: { label: 'Активен', tone: 'ok' },
   paused: { label: 'На паузе', tone: '' },
-  hired: { label: 'Трудоустроен', tone: 'acc' },
-  done: { label: 'Завершил', tone: '' },
+  done: { label: 'Завершён', tone: '' },
 };
+
+export const RESULTS = {
+  progress: { label: 'В процессе', tone: '' },
+  achieved: { label: 'Достиг цели', tone: 'ok' },
+  hired: { label: 'Трудоустроен', tone: 'acc' },
+};
+
+// Older documents combined the mentorship status and its outcome in `status`.
+// Read them without rewriting data or changing their modification date.
+export const mentorshipStatus = (s) => s.status === 'hired' ? 'done' : Object.hasOwn(STATUSES, s.status) ? s.status : 'active';
+export const studentResult = (s) => Object.hasOwn(RESULTS, s.result) ? s.result : s.status === 'hired' ? 'hired' : 'progress';
 
 export const CURRENCIES = ['₽', '$', '€'];
 export const HORIZONS = [['', 'Не указан'], ['3', '3 месяца'], ['6', '6 месяцев'], ['9', '9 месяцев'], ['12', '12 месяцев'], ['18', '18+ месяцев']];

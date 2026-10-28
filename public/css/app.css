@@ -128,7 +128,7 @@ input[type=number].field{-moz-appearance:textfield}
 .empty-card{text-align:center;padding:64px 24px}.empty-card>.i{font-size:52px;color:var(--black-20)}.empty-card .d-s{justify-content:center}.empty-card .lede{margin-top:8px}
 
 /* ---------- Login ---------- */
-.login{min-height:100vh;display:grid;grid-template-columns:1.15fr 1fr;align-items:center;gap:48px;padding:48px 72px;max-width:1440px;margin:0 auto;position:relative}
+.login{min-height:0;display:grid;grid-template-columns:1.15fr 1fr;align-items:center;gap:48px;padding:48px 72px;max-width:1440px;margin:0 auto;position:relative}
 .login-l{display:flex;flex-direction:column;gap:20px;padding-top:56px}
 .login-logo{position:absolute;top:36px;left:72px}
 .login-l .lede{max-width:520px}
@@ -137,14 +137,14 @@ input[type=number].field{-moz-appearance:textfield}
 .login-card{width:100%;max-width:420px;display:flex;flex-direction:column;padding:36px;box-shadow:var(--elev-2)}
 
 /* ---------- Wizard ---------- */
-.stage{min-height:100vh;display:flex;flex-direction:column}
+.stage{min-height:0;display:flex;flex-direction:column}
 .stage-top{display:flex;align-items:center;justify-content:space-between;padding:20px var(--gutter)}
 .stage-body{flex:1;display:grid;grid-template-columns:232px 1fr;padding-left:var(--gutter)}
 .stage-col{display:flex;flex-direction:column;min-width:0}
-.stage-main{flex:1;max-width:760px;width:100%;margin:0 auto;padding:24px var(--gutter) 160px}
+.stage-main{flex:1;max-width:760px;width:100%;margin:0 auto;padding:24px var(--gutter) 32px}
 .stage-main.wide{max-width:1120px}
 .wz-body{gap:24px}
-.stage-foot{position:fixed;left:0;right:0;bottom:0;z-index:40;padding:16px var(--gutter) 16px calc(var(--gutter) + 232px);display:flex;justify-content:center;background:linear-gradient(180deg,transparent,var(--bg) 40%)}
+.stage-foot{position:sticky;bottom:0;z-index:40;padding:16px var(--gutter) 16px calc(var(--gutter) + 232px);display:flex;justify-content:center;background:linear-gradient(180deg,transparent,var(--bg) 40%)}
 .stage-foot .in{display:flex;gap:12px;align-items:center;width:100%;max-width:calc(1120px - 2 * var(--gutter));justify-content:space-between}
 .side-steps{position:sticky;top:32px;align-self:start;display:flex;flex-direction:column;gap:2px;padding-top:40px;height:max-content}
 .ss{position:relative;display:flex;align-items:center;gap:14px;padding:9px 12px 9px 0;border-radius:999px;text-align:left;color:var(--black-52);font:600 15px var(--font);letter-spacing:-.015em;transition:color var(--dur-1)}
@@ -225,7 +225,7 @@ input[type=number].field{-moz-appearance:textfield}
 .li.old{opacity:.62}.li.old:hover{opacity:1}
 .ico-sq{width:38px;height:38px;border-radius:12px;background:var(--black-6);display:grid;place-items:center;flex:none}.ico-sq .i{font-size:20px}
 .tasks{display:flex;flex-direction:column}
-.task{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--black-4)}.task:first-child{border-top:0}
+.task{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;border-top:1px solid var(--black-4)}.task:first-child{border-top:0}
 .tk{width:22px;height:22px;border-radius:7px;border:2px solid var(--black-20);display:grid;place-items:center;flex:none;transition:all var(--dur-1);color:#fff}.tk .i{font-size:15px}
 .tk:hover{border-color:var(--ink)}.task.done .tk{background:var(--ink);border-color:var(--ink)}
 .task.done .grow{color:var(--black-32);text-decoration:line-through}
@@ -312,6 +312,7 @@ select.field.sm{padding-right:42px}
 .dropdown-option{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:11px 14px;border-radius:16px;cursor:pointer;font:500 15px/1.4 var(--font);letter-spacing:-.015em;overflow-wrap:anywhere}
 .dropdown-option.highlighted{background:var(--black-6)}
 .dropdown-option[aria-selected=true]{font-weight:600}
+.dropdown-pop-comparison .dropdown-option>span:first-child{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dropdown-check{display:flex;align-items:center;justify-content:center;width:20px;flex:none}
 .dropdown-check .i{font-size:20px}
 .selw.cur .dropdown-btn{padding-left:20px;padding-right:16px}
@@ -433,13 +434,133 @@ span.tk{cursor:default}span.tk:hover{border-color:var(--black-20)}.task.done spa
 .student-description{margin-top:6px}
 .student-badges{gap:8px;margin-top:10px}
 .task-text{text-align:left;overflow-wrap:anywhere;border-radius:6px}
-.task-text:hover{background:var(--black-4)}
+.task:has(.task-text):hover{background:var(--black-4)}
 .task-text:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 .task-input.field{flex:1;min-width:0;width:0;padding:4px 8px;border-radius:8px}
 .assessment-mode{padding:16px 20px;margin-bottom:28px;background:var(--surface-2);border-radius:20px}
 .assessment-mode .chk{margin:0}
-.assessment-mode .hint{margin-top:8px}
+.assessment-mode .hint{margin-top:4px}
 @media (max-width:560px){
   #comp-card .card-h,#session-form>.row,.stage-foot.flat .in{flex-wrap:wrap}
   .stage-foot.flat .pill.lg{font-size:16px;padding:0 20px}
+}
+
+/* Сортировка списка учеников и подсказки форм. */
+.sort-btn{display:inline-flex;align-items:center;gap:4px;font:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left;white-space:nowrap}
+.sort-btn .sort-arrow{font-size:16px;color:var(--black-52);opacity:0;transform:rotate(-90deg);transition:opacity var(--dur-1)}
+.sort-btn .sort-arrow.asc{transform:rotate(90deg)}
+.sort-btn:hover .sort-arrow,.sort-btn:focus-visible .sort-arrow,.sort-btn[aria-pressed=true] .sort-arrow{opacity:1}
+.sort-btn:hover,.sort-btn[aria-pressed=true]{color:var(--ink)}
+.sort-btn[aria-pressed=true] .sort-arrow{color:var(--ink)}
+.sort-btn:focus-visible{outline:2px solid var(--ink);outline-offset:4px;border-radius:2px}
+.sort-mobile{display:none}
+.field-error{color:var(--red);font:500 14px/1.4 var(--font)}
+.field[aria-invalid=true]{box-shadow:0 0 0 2px var(--red)}
+.assessment-mode .hint{padding-left:32px}
+@media(max-width:900px){.sort-mobile{display:block}}
+
+.search-field .field.sm{padding-right:46px}
+.search-clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;color:var(--black-52)}
+.search-clear .i{font-size:18px}
+.search-clear:hover{background:var(--black-8);color:var(--ink)}
+.search-clear:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#sessions-card [data-sessions-list]:empty{display:none}
+
+/* Общий футер приложения и юридических страниц. */
+#app,.site-layout{min-height:100vh;display:flex;flex-direction:column}
+.app-content{flex:1;min-width:0;display:flex;flex-direction:column}
+.app-content>.login,.app-content>.stage{flex:1}
+.app-content>.page{width:100%}
+.site-layout>.legal{flex:1;width:100%}
+.site-footer{flex:none;border-top:1px solid var(--black-8);padding:28px var(--gutter);color:var(--black-52);font-size:13px}
+.site-footer-in{max-width:calc(var(--page-max) - 2 * var(--gutter));margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:24px}
+.site-footer-brand{flex:none}
+.site-footer-links{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:12px 24px}
+.site-footer a:hover{color:var(--ink)}
+.site-footer a:focus-visible{outline:2px solid var(--ink);outline-offset:4px;border-radius:2px}
+@media(max-width:760px){
+  .site-footer-in{align-items:flex-start;flex-direction:column;gap:20px}
+  .site-footer-links{align-items:flex-start;flex-direction:column;gap:12px}
+}
+
+/* Ученики: список, карточки и общие действия. */
+.students-page .thead,.students-page .trow{grid-template-columns:minmax(140px,1.45fr) 84px minmax(110px,1.2fr) 88px 112px 118px 92px;gap:12px;padding-left:20px;padding-right:56px}
+.students-page .thead{height:auto;min-height:52px;font-size:11px;line-height:1.35}
+.students-page .thead .sort-btn{white-space:normal}
+.students-page .trow{font-size:14px;border-bottom:0}
+.students-page .trow .small{font-size:12px}
+.students-page .trow .chip{padding:0 9px;font-size:12px}
+.student-table-row{position:relative;border-bottom:1px solid var(--black-4)}
+.student-table-row:last-child{border-bottom:0}
+.student-menu-trigger{position:absolute;right:12px;top:18px}
+.student-menu-trigger[aria-expanded=true]{background:var(--black-6)}
+.student-menu{position:fixed;z-index:180;max-height:calc(100dvh - 24px);overflow-y:auto;width:min(270px,calc(100vw - 24px));padding:8px;background:#fff;border-radius:20px;box-shadow:var(--elev-3)}
+.student-menu .um-i{font-size:14px;padding:10px 12px}
+.student-menu [role=menuitem]:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+.cards-mode>.thead{display:none}
+.cards-mode>#rows{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.cards-mode>#rows>.empty{grid-column:1/-1}
+.student-card{position:relative;padding:24px;min-width:0;transition:box-shadow var(--dur-1)}
+.student-card:hover{box-shadow:var(--elev-2)}
+.student-card-link{display:flex;flex-direction:column;height:100%}
+.student-card-head{display:flex;align-items:flex-start;gap:12px;margin:0 24px 0 0}
+.student-card-head .av{width:44px;height:44px;font-size:16px}
+.student-card h2{font:600 18px/1.3 var(--font);letter-spacing:-.03em;overflow-wrap:anywhere}
+.student-card-identity{min-width:0}
+.student-card-description{margin-top:4px;font-size:12px;overflow-wrap:anywhere}
+.student-card-badges{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:14px}
+.student-card-badges .chip{font-size:12px;padding:0 10px}
+.student-card-goal{display:flex;flex-direction:column;gap:0;margin-top:20px;overflow-wrap:anywhere}
+.student-card-goal>.small:first-child{margin-bottom:8px}
+.student-card-goal>b+.small{margin-top:2px}
+.student-card-goal b{font-size:15px}
+.student-card-score{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding-top:18px;margin-top:auto}
+.student-card-score .num{font-size:24px;font-weight:700}
+.task{position:relative;border-top:0}
+.task+.task::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:var(--black-4);pointer-events:none}
+@media(max-width:1100px){
+  .students-page .thead{display:none}
+  .students-page .trow{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"who grade" "goal prog" "status result";row-gap:12px}
+  .students-page .trow>:nth-child(1){grid-area:who}
+  .students-page .trow>:nth-child(2){grid-area:grade}
+  .students-page .trow>:nth-child(3){grid-area:goal}
+  .students-page .trow>:nth-child(4){grid-area:prog}
+  .students-page .trow>:nth-child(5){display:block;grid-area:status}
+  .students-page .trow>:nth-child(6){display:block;grid-area:result}
+  .students-page .trow>:nth-child(7){display:none}
+  .cards-mode>#rows{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:640px){
+  .cards-mode>#rows{grid-template-columns:1fr}
+  .students-page .trow{padding-left:16px;padding-right:48px;column-gap:8px}
+  .students-page .trow .who{gap:10px}
+}
+
+/* Поиск, фильтры и переключатель вида в общей строке. */
+.students-page .filters{flex-wrap:nowrap;gap:10px}
+.students-page .filters .search-field{flex:1;min-width:160px}
+.students-page .filters>.selw:not(.search-field){flex:none}
+.students-page .filters .dropdown-btn{gap:8px}
+.students-page .layout-toggle{flex:none;display:flex;gap:2px;padding:3px}
+.layout-toggle button{display:flex;align-items:center;justify-content:center;width:36px;height:34px;padding:0;border-radius:999px}
+.layout-toggle .i{font-size:20px}
+.layout-toggle button:focus-visible{outline:2px solid var(--ink);outline-offset:-3px}
+@media(max-width:760px){
+  .students-page .filters{flex-wrap:wrap}
+  .students-page .filters .search-field{flex-basis:calc(100% - 94px);order:0}
+  .students-page .layout-toggle{order:1}
+  .students-page .filters>.selw:not(.search-field){order:2;flex:1;min-width:0}
+  .students-page .filters .dropdown-btn{width:100%;padding-left:10px;padding-right:10px;font-size:12px;gap:4px}
+  .students-page .filters .dropdown-chevron{font-size:16px}
+  .students-page .filters>.selw:nth-child(3){flex:1.1}
+  .students-page .filters>.selw:nth-child(4){flex:.9}
+}
+
+.students-page .trow .student-updated{color:var(--ink)}
+.umenu,.wsmenu{visibility:hidden}
+.umenu.on,.wsmenu.on{visibility:visible}
+@media (max-width:560px){
+  .ws{position:static}
+  .wsmenu{top:58px;left:var(--gutter);width:min(290px,calc(100% - 2 * var(--gutter)))}
+  .umenu{width:min(290px,calc(100% - 2 * var(--gutter)))}
 }

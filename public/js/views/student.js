@@ -1,5 +1,5 @@
 import * as store from '../store.js';
-import { GRADES, STATUSES, CURRENCIES, HORIZONS, GROUPS, SKILLS, LEVELS } from '../config.js';
+import { GRADES, STATUSES, RESULTS, mentorshipStatus, studentResult, CURRENCIES, HORIZONS, GROUPS, SKILLS, LEVELS } from '../config.js';
 import { confirmDialog, esc, icon, avatar, fileToAvatar, fullName, workLine, fmtDate, fmtMoney, fmtSize, today, safeUrl, linkedInUrl, linkedInLink, host, toast, openModal, downloadBlob, ACT } from '../ui.js';
 import { radar, radarLegend, scoreOrb } from '../radar.js';
 import { skillsEditorHtml, bindSkillsEditor } from '../skills-editor.js';
@@ -20,7 +20,7 @@ function skillRows(now, base) {
   return GROUPS.map((g) => `<div class="sr-grp"><div class="sr-h"><span style="color:${g.color}">${icon(g.icon)}</span>${g.label}</div>
     ${SKILLS.filter((s) => s.g === g.id).map((s) => {
       const v = now.scores[s.id] || 0, b = base ? base.scores[s.id] || 0 : null;
-      return `<div class="sr"><span class="sr-n">${esc(s.label)}</span><div class="bar sr-bar"><i style="width:${(v / 5) * 100}%;background:${g.color}"></i>${b ? `<u class="tick" style="left:${(b / 5) * 100}%" title="Было: ${LEVELS[b]}"></u>` : ''}</div><span class="sr-l">${LEVELS[v]}</span>${b === null ? '<span></span>' : dChip(v - b) || '<span></span>'}</div>`;
+      return `<div class="sr"><span class="sr-n">${esc(s.label)}</span><div class="bar sr-bar"><i style="width:${(v / 5) * 100}%;background:${g.color}"></i>${b ? `<u class="tick" style="left:${(b / 5) * 100}%" title="Было: ${LEVELS[b]}"></u>` : ''}</div><span class="sr-l">${LEVELS[v] || `${fmt1(v)}/5`}</span>${b === null ? '<span></span>' : dChip(v - b) || '<span></span>'}</div>`;
     }).join('')}</div>`).join('');
 }
 
@@ -46,12 +46,12 @@ function competenciesCard(s, now, base, ro) {
     <details class="more"><summary>Все навыки подробно ${icon('expand_more')}</summary>${skillRows(cur, bs)}</details></div>`;
 }
 
-function historyCard(s, now, ro) {
+function historyCard(s, now) {
   const list = [...s.assessments].reverse();
   return `<div class="card"><div class="card-h"><h2 class="d-s">История оценок</h2><span class="small">${s.assessments.length} шт.</span></div><div class="tl">
     ${list.map((a) => { const i = s.assessments.indexOf(a), prev = s.assessments[i - 1], t = total(a.scores), isNow = a.id === now.id;
       return `<div class="tl-i ${isNow ? 'acc' : ''}"><div class="row spread"><div class="tl-t">${fmtDate(a.date)} <span class="muted">· ${fmt1(t)}/5</span> ${prev ? dChip(t - total(prev.scores)) : ''}</div>
-        ${isNow ? '<span class="chip acc">Текущая</span>' : ro ? '' : `<button class="chip" data-act="st-cmp" data-id="${a.id}">Сравнить</button>`}</div>${a.comment ? `<div class="tl-s">${esc(a.comment)}</div>` : ''}</div>`; }).join('')}</div></div>`;
+        </div>${a.comment ? `<div class="tl-s">${esc(a.comment)}</div>` : ''}</div>`; }).join('')}</div></div>`;
 }
 
 const goalCard = (s, ro) => {
@@ -65,10 +65,10 @@ const goalCard = (s, ro) => {
 
 function portfolioCard(s, ro) {
   const list = [...s.portfolios].reverse(), active = store.activePortfolioId(s);
-  return `<div class="card" id="portfolio-card"><div class="card-h"><h2 class="d-s">Портфолио</h2>${ro ? '' : `<button class="pill ghost sm" data-act="st-add-pf">${icon('add')} Новая версия</button>`}</div>
-    ${list.length ? `<div class="list">${list.map((p) => `<div class="li ${p.id === active ? '' : 'old'}"><span class="ico-sq">${icon('link')}</span><div class="grow"><a class="link ell" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.title)}</a><div class="small ell">${esc(host(p.url))} · ${fmtDate(p.addedAt)}</div>${p.note ? `<div class="small note">${esc(p.note)}</div>` : ''}</div>${p.id === active ? '<span class="chip ok">Актуальное</span>' : ''}
+  return `<div class="card" id="portfolio-card"><div class="card-h"><h2 class="d-s">Портфолио</h2>${ro ? '' : `<button class="pill ghost sm" data-act="st-add-pf">${icon('add')} Добавить</button>`}</div>
+    ${list.length ? `<div class="list">${list.map((p) => `<div class="li ${p.id === active ? '' : 'old'}"><span class="ico-sq">${icon('link')}</span><div class="grow"><a class="link ell" href="${esc(safeUrl(p.url) || '#')}" target="_blank" rel="noopener noreferrer">${esc(p.title)}</a><div class="small ell">${esc(host(p.url))} · ${fmtDate(p.addedAt)}</div>${p.note ? `<div class="small note">${esc(p.note)}</div>` : ''}</div>${p.id === active ? '<span class="chip ok">Актуальное</span>' : ''}
       ${ro ? '' : `<div class="fwrap"><button type="button" class="ws-dots" data-act="file-menu" aria-label="Действия со ссылкой портфолио">${icon('more_horiz')}</button>
-        <div class="fmenu"><a class="um-i" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${icon('link')} Открыть ссылку</a>
+        <div class="fmenu"><a class="um-i" href="${esc(safeUrl(p.url) || '#')}" target="_blank" rel="noopener noreferrer">${icon('link')} Открыть ссылку</a>
           ${p.id === active ? '' : `<button type="button" class="um-i" data-act="portfolio-active" data-id="${p.id}">${icon('check_circle', 'ol')} Сделать актуальным</button>`}
           <button type="button" class="um-i danger" data-act="portfolio-del" data-id="${p.id}" data-name="${esc(p.title)}">${icon('delete', 'ol')} Удалить</button></div></div>`}</div>`).join('')}</div>` : '<p class="small">Ссылок пока нет</p>'}
     ${list.length > 1 ? '<p class="small hint">Прошлые версии сохраняются в истории</p>' : ''}</div>`;
@@ -85,14 +85,14 @@ function fileRow(s, c, kind, ro, ic, activeId, word) {
 }
 function cvCard(s, ro) {
   const list = [...s.cvs].reverse(), act = store.activeFileId(s, 'cvs');
-  return `<div class="card"><div class="card-h"><h2 class="d-s">CV</h2>${ro ? '' : `<label class="pill ghost sm" for="cv-up" style="cursor:pointer">${icon('upload')} Загрузить новое</label><input id="cv-up" type="file" hidden accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt,.rtf">`}</div>
+  return `<div class="card"><div class="card-h"><h2 class="d-s">CV</h2>${ro ? '' : `<label class="pill ghost sm" for="cv-up" style="cursor:pointer">${icon('add')} Добавить</label><input id="cv-up" type="file" hidden accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt,.rtf">`}</div>
     ${list.length ? `<div class="list">${list.map((c) => fileRow(s, c, 'cvs', ro, 'description', act, 'Актуальное')).join('')}</div>` : '<p class="small">CV пока не загружено</p>'}</div>`;
 }
 
 // Договор виден только ментору: на публичной странице его нет (сервер его вообще не отдаёт).
 function contractCard(s) {
   const list = [...(s.contracts || [])].reverse(), act = store.activeFileId(s, 'contracts');
-  return `<div class="card"><div class="card-h"><h2 class="d-s">Договор</h2><label class="pill ghost sm" for="ct-up" style="cursor:pointer">${icon('upload')} ${list.length ? 'Загрузить новый' : 'Загрузить'}</label><input id="ct-up" type="file" hidden accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt,.rtf"></div>
+  return `<div class="card"><div class="card-h"><h2 class="d-s">Договор</h2><label class="pill ghost sm" for="ct-up" style="cursor:pointer">${icon('add')} Добавить</label><input id="ct-up" type="file" hidden accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt,.rtf"></div>
     ${list.length ? `<div class="list">${list.map((c) => fileRow(s, c, 'contracts', false, 'contract', act, 'Актуальный')).join('')}</div>` : '<p class="small">Договор пока не загружен</p>'}</div>`;
 }
 
@@ -112,9 +112,9 @@ const tasksCard = (s, ro) => `<div class="card" id="tasks-card"><div class="card
   <div class="tasks">${s.tasks.map((t) => `<div class="task ${t.done ? 'done' : ''}">${ro ? `<span class="tk">${t.done ? icon('check') : ''}</span>` : `<button class="tk" data-act="st-task" data-id="${t.id}" aria-label="Отметить">${t.done ? icon('check') : ''}</button>`}${taskText(t, ro)}${ro ? '' : `<button class="x" data-act="st-task-del" data-id="${t.id}" aria-label="Удалить">${icon('close')}</button>`}</div>`).join('') || '<p class="small">Нет задач</p>'}</div>
   ${ro ? '' : `<form class="row add-row" id="task-form"><input class="field sm" name="text" placeholder="Новая задача для ученика" autocomplete="off" required><button class="pill dark sm" type="submit">Добавить</button></form>`}</div>`;
 
-const sessionsList = (s, ro) => `${[...s.sessions].sort((a, b) => b.date.localeCompare(a.date)).map((x) => `<div class="tl-i"><div class="row spread"><div class="tl-t">${fmtDate(x.date)}</div>${ro ? '' : `<button class="x" data-act="st-sess-del" data-id="${x.id}" aria-label="Удалить">${icon('close')}</button>`}</div><div class="tl-s pre">${esc(x.text)}</div></div>`).join('') || '<p class="small">Записей пока нет</p>'}`;
+const sessionsList = (s, ro) => `${[...s.sessions].sort((a, b) => b.date.localeCompare(a.date)).map((x) => `<div class="tl-i"><div class="row spread"><div class="tl-t">${fmtDate(x.date)}</div>${ro ? '' : `<button class="x" data-act="st-sess-del" data-id="${x.id}" aria-label="Удалить">${icon('close')}</button>`}</div><div class="tl-s pre">${esc(x.text)}</div></div>`).join('')}`;
 const sessionsCard = (s, ro) => `<div class="card" id="sessions-card"><div class="card-h"><h2 class="d-s">Встречи и заметки</h2></div>
-  ${ro ? '' : `<form class="col" id="session-form"><div class="row">${datePicker('date', today())}<button class="pill dark sm" type="submit" style="margin-left:auto">Записать</button></div><textarea class="field sm" name="text" rows="2" placeholder="О чём говорили, договорённости, что обсудить дальше" required></textarea></form>`}
+  ${ro ? '' : `<form class="col" id="session-form" novalidate><div class="row">${datePicker('date', today())}<button class="pill dark sm" type="submit" style="margin-left:auto">Записать</button></div><textarea class="field sm" name="text" rows="2" aria-label="Заметка о встрече" aria-describedby="session-error" placeholder="О чём говорили, договорённости, что обсудить дальше" required></textarea><p class="field-error hide" id="session-error" role="alert">Напишите, что обсудили на встрече</p></form>`}
   <div class="tl" data-sessions-list style="margin-top:${ro ? 0 : 20}px">${sessionsList(s, ro)}</div></div>`;
 
 const privateCard = (s) => `<div class="card flat"><div class="card-h"><h2 class="d-s">${icon('lock')} Личная заметка</h2><span class="small">видите только вы</span></div>
@@ -125,14 +125,14 @@ const privateCard = (s) => `<div class="card flat"><div class="card-h"><h2 class
 export function studentPage(s, base, ro = false) {
   last = { s, base, ro }; const token = typeof ro === 'string' ? ro : ''; // для публичной страницы ro — это токен ссылки
   const show = (k) => !ro || s.shareOpts?.[k] !== false; // на публичной странице ментор мог скрыть разделы
-  const now = latest(s), st = STATUSES[s.status] || STATUSES.active, g = growth(s);
+  const now = latest(s), st = STATUSES[mentorshipStatus(s)], result = RESULTS[studentResult(s)], g = growth(s);
   const av = ro ? avatar(s, 'xl') : `<label class="av-edit" for="av-up" title="Сменить фото">${avatar(s, 'xl')}<span class="av-cam">${icon('photo_camera')}</span></label><input id="av-up" type="file" accept="image/*" hidden>`;
   return `<div class="hero"><div class="hero-l">${av}<div><div class="student-name"><h1 class="d-m">${esc(fullName(s))}</h1>${linkedInLink(s.linkedin)}</div>
       <div class="muted student-description">${esc(workLine(s))}</div>
-      <div class="row wrap student-badges"><span class="chip on">${esc(s.grade)}</span><span class="chip ${st.tone}">${st.label}</span>${show('competencies') ? `<span class="chip">${fmt1(total(now.scores))}/5 ${g === null ? '' : dChip(g)}</span>` : ''}</div></div></div>
+      <div class="row wrap student-badges"><span class="chip on">${esc(s.grade)}</span><span class="chip ${st.tone}">${st.label}</span><span class="chip ${result.tone}">${result.label}</span>${show('competencies') ? `<span class="chip">${fmt1(total(now.scores))}/5 ${g === null ? '' : dChip(g)}</span>` : ''}</div></div></div>
       ${ro ? (show('competencies') ? `<div class="row"><a class="pill dark" href="/s/${esc(token)}/assess">Оценить компетенции</a></div>` : '') : `<div class="row"><button class="pill ghost" data-act="st-share">${icon('ios_share')} Поделиться</button><button class="pill ghost" data-act="st-edit">${icon('edit')} Редактировать</button></div>`}</div>
-    <div class="detail"><div class="col-main">${show('competencies') ? competenciesCard(s, now, base, ro) : ''}${show('history') ? historyCard(s, now, ro) : ''}${show('sessions') ? sessionsCard(s, ro) : ''}</div>
-      <div class="col-side">${ro || s.status !== 'hired' ? '' : reviewCard(s)}${show('goal') ? goalCard(s, ro) : ''}${show('portfolio') ? portfolioCard(s, ro) : ''}${show('cv') ? cvCard(s, ro) : ''}${ro ? '' : contractCard(s)}${show('tasks') ? tasksCard(s, ro) : ''}${ro ? '' : privateCard(s)}</div></div>`;
+    <div class="detail"><div class="col-main">${show('competencies') ? competenciesCard(s, now, base, ro) : ''}${show('history') ? historyCard(s, now) : ''}${show('sessions') ? sessionsCard(s, ro) : ''}</div>
+      <div class="col-side">${ro || studentResult(s) !== 'hired' ? '' : reviewCard(s)}${show('goal') ? goalCard(s, ro) : ''}${show('portfolio') ? portfolioCard(s, ro) : ''}${show('cv') ? cvCard(s, ro) : ''}${ro ? '' : contractCard(s)}${show('tasks') ? tasksCard(s, ro) : ''}${ro ? '' : privateCard(s)}</div></div>`;
 }
 // Оценка, с которой сравниваем по умолчанию: самая первая (если оценок больше одной).
 export const defaultBase = (s) => (s.assessments.length > 1 ? s.assessments[0] : null);
@@ -151,9 +151,17 @@ export function studentView({ id }) {
       store.refreshSelf(id).then((changed) => { if (changed && location.pathname === `/student/${id}`) rerender(); }).catch(() => {});
       root.querySelector('#private-note').addEventListener('change', (e) => { store.updateStudent(id, { privateNote: e.target.value.trim() }); toast('Заметка сохранена'); });
       bindTaskForm(root, id);
-      root.querySelector('#session-form').addEventListener('submit', (e) => {
+      const sessionForm = root.querySelector('#session-form'), sessionText = sessionForm.elements.text;
+      const sessionError = sessionForm.querySelector('#session-error');
+      const showSessionError = (invalid) => {
+        sessionText.setAttribute('aria-invalid', String(invalid));
+        sessionError.classList.toggle('hide', !invalid);
+      };
+      sessionText.addEventListener('input', () => { if (sessionText.value.trim()) showSessionError(false); });
+      sessionForm.addEventListener('submit', (e) => {
         e.preventDefault(); const f = new FormData(e.target), text = f.get('text');
-        if (!text.trim()) return;
+        if (!text.trim()) { showSessionError(true); sessionText.focus(); return; }
+        showSessionError(false);
         store.addSession(id, { date: f.get('date'), text });
         refreshSessions(id); e.target.elements.text.value = ''; toast('Запись добавлена');
       });
@@ -161,7 +169,7 @@ export function studentView({ id }) {
         const f = e.target.files[0]; if (!f) return;
         try { store.updateStudent(id, { avatar: await fileToAvatar(f) }); toast('Фото обновлено'); rerender(); } catch { toast('Не удалось прочитать изображение'); }
       });
-      if (s.status === 'hired') store.reviewLink(id).then((t) => { rvTokens[id] = t; const i = root.querySelector('#rv-url'); if (i) { i.value = `${location.origin}/r/${t}`; root.querySelector('#rv-copy').disabled = false; } }).catch(() => {});
+      if (studentResult(s) === 'hired') store.reviewLink(id).then((t) => { rvTokens[id] = t; const i = root.querySelector('#rv-url'); if (i) { i.value = `${location.origin}/r/${t}`; root.querySelector('#rv-copy').disabled = false; } }).catch(() => {});
       root.querySelector('#ct-up').addEventListener('change', async (e) => {
         const f = e.target.files[0]; if (!f) return; if (f.size > MAX_FILE) { toast('Файл больше 10 МБ'); return; }
         try { await store.addContract(id, f); toast('Договор загружен'); rerender(); } catch { toast('Не удалось сохранить файл'); }
@@ -184,7 +192,6 @@ ACT['rv-copy'] = async () => {
   try { await navigator.clipboard.writeText(inp.value); } catch { inp.select(); document.execCommand('copy'); }
   toast('Ссылка скопирована');
 };
-ACT['st-cmp'] = (el) => { cmp.base = el.dataset.id; rerender(); };
 // Изменения задач не пересоздают диаграммы и незаполненные формы профиля.
 function bindTaskForm(root, id) {
   root.querySelector('#task-form').addEventListener('submit', (e) => {
@@ -281,7 +288,8 @@ ACT['st-edit'] = (el) => {
     ${s.avatar ? `<div class="row">${avatar(s, 'lg')}<button type="button" class="pill ghost sm" id="ed-av-del">Убрать фото</button></div>` : ''}
     <div class="grid g2">${f('Имя', 'firstName', s.firstName)}${f('Фамилия', 'lastName', s.lastName)}</div>
     ${f('LinkedIn', 'linkedin', s.linkedin || '', 'linkedin.com/in/…')}
-    <div class="grid g2">${sel('Грейд', 'grade', GRADES.map((x) => [x, x]), s.grade)}${sel('Статус', 'status', Object.entries(STATUSES).map(([k, v]) => [k, v.label]), s.status)}</div>
+    <div class="grid g2">${sel('Грейд', 'grade', GRADES.map((x) => [x, x]), s.grade)}${sel('Статус менторства', 'status', Object.entries(STATUSES).map(([k, v]) => [k, v.label]), mentorshipStatus(s))}</div>
+    ${sel('Результат', 'result', Object.entries(RESULTS).map(([k, v]) => [k, v.label]), studentResult(s))}
     <div class="grid g2"><div>${f('Компания', 'company', s.company, '', 'text', s.jobless)}<label class="chk"><input type="checkbox" name="jobless" ${s.jobless ? 'checked' : ''}><span>Сейчас без работы</span></label></div>${f('Должность', 'role', s.role, '', 'text', s.jobless)}</div>
     <div class="divider" style="margin:4px 0"></div>
     ${f('Целевая должность', 'targetRole', g.position)}${f('Целевая компания или направление', 'targetCompany', g.company)}
@@ -292,7 +300,7 @@ ACT['st-edit'] = (el) => {
       e.preventDefault(); const d = Object.fromEntries(new FormData(e.target));
       if (!d.firstName.trim() || !d.lastName.trim()) { toast('Имя и фамилия обязательны'); return; }
       if (d.linkedin.trim() && !linkedInUrl(d.linkedin)) { toast('Укажите ссылку на профиль LinkedIn'); return; }
-      store.updateStudent(id, { linkedin: linkedInUrl(d.linkedin) || '', firstName: d.firstName.trim(), lastName: d.lastName.trim(), grade: d.grade, status: d.status, jobless: !!d.jobless, company: d.jobless ? '' : d.company.trim(), role: d.jobless ? '' : d.role.trim(),
+      store.updateStudent(id, { linkedin: linkedInUrl(d.linkedin) || '', firstName: d.firstName.trim(), lastName: d.lastName.trim(), grade: d.grade, status: d.status, result: d.result, jobless: !!d.jobless, company: d.jobless ? '' : d.company.trim(), role: d.jobless ? '' : d.role.trim(),
         goal: { position: d.targetRole.trim(), company: d.targetCompany.trim(), salary: d.salary ? Number(d.salary) : null, currency: d.currency, horizon: d.horizon } });
       close(); toast('Сохранено'); rerender();
     });
@@ -311,11 +319,11 @@ export function assessView({ id }) {
   const prev = latest(s), scores = { ...prev.scores };
   return {
     shell: 'app', nav: 'students',
-    html: `<div class="page view" style="padding-top:36px;padding-bottom:120px"><a class="back" href="/student/${s.id}">${icon('arrow_back')} ${esc(fullName(s))}</a>
+    html: `<div class="page view" style="padding-top:36px;padding-bottom:32px"><a class="back" href="/student/${s.id}">${icon('arrow_back')} ${esc(fullName(s))}</a>
       <h1 class="d-m" style="margin-top:20px">Обновите компетенции</h1>
-      <p class="lede" style="margin:8px 0 20px">Значения подставлены из текущей оценки (${fmtDate(prev.date)}). Уточните навыки или сохраните новую переоценку, чтобы зафиксировать прогресс.</p>
+      <p class="lede" style="margin:8px 0 20px">Уточните баллы текущей оценки (${fmtDate(prev.date)}) или сохраните переоценку для фиксации прогресса</p>
       <div class="assessment-mode"><label class="chk"><input type="checkbox" id="as-reassess"><span>Сохранить как переоценку</span></label>
-        <p class="small hint" id="as-mode-hint">Обновится текущая оценка: её дата сохранится, новой записи в истории не будет. Баллы пересчитаются по исправленным значениям.</p></div>
+        <p class="small hint" id="as-mode-hint">Баллы обновятся в текущей оценке, дата и запись в истории сохранятся</p></div>
       <div class="skills-wrap"><div class="skills-col" id="as-skills">${skillsEditorHtml(scores)}
         <div class="private"><label class="lbl">Комментарий к оценке</label><textarea class="field" id="as-comment" placeholder="Что изменилось, за счёт чего, над чем работаем дальше">${esc(prev.comment)}</textarea></div>
         </div>
@@ -336,8 +344,8 @@ export function assessView({ id }) {
         else { reassessComment = comment.value; comment.value = updateComment; }
         root.querySelector('#as-save').textContent = checkbox.checked ? 'Сохранить переоценку' : 'Обновить текущую оценку';
         root.querySelector('#as-mode-hint').textContent = checkbox.checked
-          ? 'Появится новая запись в истории с сегодняшней датой. Изменения войдут в динамику роста.'
-          : 'Обновится текущая оценка: её дата сохранится, новой записи в истории не будет. Баллы пересчитаются по исправленным значениям.';
+          ? 'Новая оценка сохранится с сегодняшней датой и войдёт в динамику роста'
+          : 'Баллы обновятся в текущей оценке, дата и запись в истории сохранятся';
         draw();
       });
       root.querySelector('#as-save').addEventListener('click', async () => {

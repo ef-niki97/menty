@@ -8,6 +8,8 @@ import { wizardView } from './views/wizard.js';
 import { studentView, assessView } from './views/student.js';
 import { shareView, shareAssessView } from './views/share.js';
 import { reviewView } from './views/review.js';
+import { siteFooter } from './footer.js';
+import { beginStartup, measureStartup, finishStartup } from './diagnostics.js';
 import './dropdown.js';
 
 // [шаблон пути, экран, нужна ли авторизация]
@@ -64,7 +66,7 @@ function render(path, keep) {
   if (!isAuthed() && m.auth) { go('/login', true); return; }
   if (isAuthed() && path === 'login') { go('/students', true); return; }
   const v = m.fn(m.params), y = window.scrollY;
-  app.innerHTML = v.shell === 'app' ? `${nav(v.nav)}<main>${v.html}</main>` : v.html;
+  app.innerHTML = (v.shell === 'app' ? `${nav(v.nav)}<main class="app-content">${v.html}</main>` : `<div class="app-content">${v.html}</div>`) + siteFooter();
   app.classList.toggle('still', !!keep);
   v.mount?.(app);
   const restore = $('#restore-in'); restore?.addEventListener('change', onRestore);
@@ -171,6 +173,8 @@ async function onRestore(e) {
   f.text().then(importJson).then(() => { toast('Данные восстановлены'); go('/students'); }).catch(() => toast('Не удалось восстановить данные из файла'));
 }
 
-await initAuth();
-if (isAuthed()) await initStore().catch(() => toast('Не удалось загрузить данные'));
-route(false);
+beginStartup();
+await measureStartup('auth', initAuth);
+if (isAuthed()) await measureStartup('data', initStore).catch(() => toast('Не удалось загрузить данные'));
+await measureStartup('render', () => route(false));
+finishStartup();

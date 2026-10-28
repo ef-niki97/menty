@@ -8,7 +8,8 @@ const items = (select) => [...select.options].filter((option) => !option.disable
 function sync(select) {
   const button = controls.get(select);
   if (!button) return;
-  const label = button.querySelector('[data-dropdown-label]'), text = select.selectedOptions[0]?.textContent || '';
+  const label = button.querySelector('[data-dropdown-label]'), selected = select.selectedOptions[0];
+  const text = selected?.value === '' ? (select.dataset.emptyLabel || selected.textContent) : selected?.textContent || '';
   if (label.textContent !== text) label.textContent = text;
   if (button.disabled !== select.disabled) button.disabled = select.disabled;
 }
@@ -46,7 +47,8 @@ function position() {
   const { button, select, panel } = open, rect = button.getBoundingClientRect(), gap = 8, margin = 12;
   if (!button.isConnected || rect.bottom <= 0 || rect.top >= innerHeight) { close(); return; }
   const compact = select.dataset.f === 'currency' || select.name === 'currency';
-  const width = Math.min(Math.max(rect.width, compact ? 120 : 220), innerWidth - margin * 2);
+  const minWidth = select.id === 'cmp-sel' ? 280 : compact ? 120 : 220;
+  const width = Math.min(Math.max(rect.width, minWidth), innerWidth - margin * 2);
   panel.style.width = `${width}px`;
   const below = innerHeight - rect.bottom - gap - margin, above = rect.top - gap - margin;
   const up = below < Math.min(panel.scrollHeight, 200) && above > below;
@@ -64,6 +66,7 @@ function show(select) {
   if (!options.length) return;
   const panel = document.createElement('div');
   panel.className = 'dropdown-pop'; panel.id = button.getAttribute('aria-controls');
+  if (select.id === 'cmp-sel') panel.classList.add('dropdown-pop-comparison');
   panel.setAttribute('role', 'listbox'); panel.setAttribute('aria-label', button.getAttribute('aria-label'));
   options.forEach((option, i) => {
     const row = document.createElement('div');

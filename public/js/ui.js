@@ -9,10 +9,10 @@ export const icon = (n, cls = '') => {
 };
 export const ACT = {}; // обработчики для [data-act]
 
-export const fmtDate = (iso) => new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
+export const fmtDate = (iso) => new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso + 'T00:00:00' : iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
 export const fmtMoney = (n, cur) => n ? `${Number(n).toLocaleString('ru-RU')} ${cur}` : 'Не указано';
 export const fmtSize = (b) => b > 1048576 ? `${(b / 1048576).toFixed(1)} МБ` : `${Math.max(1, Math.round(b / 1024))} КБ`;
-export const today = () => new Date().toISOString().slice(0, 10);
+export const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 export const workLine = (s) => [s.role, s.jobless ? 'В поисках работы' : s.company].filter(Boolean).join(' · ') || 'Место работы не указано';
 const TR = { а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'kh', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'shch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya' };
 // «Чигвинцев» → «chigvintsev»: для читаемых адресов вида /student/chigvintsev

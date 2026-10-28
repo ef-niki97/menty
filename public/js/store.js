@@ -2,6 +2,7 @@
 // Список учеников держим в памяти: чтение синхронное, а каждая запись сразу уходит на сервер.
 import { api } from './api.js';
 import { slugify, linkedInUrl } from './ui.js';
+import { mentorshipStatus, studentResult } from './config.js';
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()).replace('.', ''));
 const now = () => new Date().toISOString();
@@ -61,7 +62,7 @@ export async function addStudent(d) {
   const s = {
     id: newId(d.lastName), workspaceId: currentWs()?.id, createdAt: t, updatedAt: t,
     firstName: d.firstName.trim(), lastName: d.lastName.trim(),
-    grade: d.grade, status: d.status || 'active', avatar: d.avatar || '',
+    grade: d.grade, status: mentorshipStatus(d), result: studentResult(d), avatar: d.avatar || '',
     linkedin: linkedInUrl(d.linkedin) || '',
     jobless: !!d.jobless, company: d.jobless ? '' : d.company?.trim() || '', role: d.jobless ? '' : d.role?.trim() || '',
     goal: { position: d.targetRole?.trim() || '', company: d.targetCompany?.trim() || '', salary: d.salary ? Number(d.salary) : null, currency: d.currency || '₽', horizon: d.horizon || '' },
@@ -136,7 +137,7 @@ export const uidNew = uid;
 // Самооценки приходят от менти напрямую в базу — подтягиваем их, не трогая остальные локальные правки.
 export async function refreshSelf(id) {
   const fresh = (await api('GET', '/students')).find((x) => x.id === id), s = getStudent(id); if (!fresh || !s) return false;
-  const changed = (fresh.selfAssessments?.length || 0) !== (s.selfAssessments?.length || 0) || fresh.review?.date !== s.review?.date;
+  const changed = JSON.stringify(fresh.selfAssessments || []) !== JSON.stringify(s.selfAssessments || []) || JSON.stringify(fresh.review || null) !== JSON.stringify(s.review || null);
   if (changed) { s.selfAssessments = fresh.selfAssessments; s.review = fresh.review; } return changed;
 }
 // Ссылка, по которой менти оставляет отзыв: создаётся один раз, повторный вызов отдаёт ту же.
